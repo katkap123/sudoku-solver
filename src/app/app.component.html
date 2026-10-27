@@ -1,0 +1,87 @@
+
+<div class="page">
+
+  <div class="sudoku-container">
+
+    <h1>Sudoku Solver</h1>
+
+    <p class="subtitle">
+      Enter numbers 1–9 or X for empty cells
+    </p>
+
+
+    <div class="game-controls">
+
+      <label for="difficulty">Difficulty:</label>
+
+      <select
+        id="difficulty"
+        [(ngModel)]="difficulty">
+
+        <option value="easy">Easy</option>
+        <option value="medium">Medium</option>
+        <option value="hard">Hard</option>
+
+      </select>
+
+      <button
+        class="generate-btn"
+        (click)="generateRandomSudoku()">
+        Generate Random Sudoku
+      </button>
+      <br>
+      <p>Or give your sudoku to get solution</p>
+    </div>
+
+    <div class="sudoku-grid">
+
+      <ng-container
+        *ngFor="let row of board; let r = index; trackBy: trackByIndex">
+    
+      <input
+      *ngFor="let cell of row; let c = index; trackBy: trackByIndex"
+      type="text"
+      maxlength="1"
+      inputmode="text"
+      [value]="cell === 'X' ? '' : cell"
+      (input)="onCellInput($event, r, c)"
+      [disabled]="lockedCells[r][c]"
+      [class.locked-cell]="lockedCells[r][c]"
+      [class.box-right]="c === 2 || c === 5"
+      [class.box-bottom]="r === 2 || r === 5"
+      [class.invalid-cell]="isInvalidCell(r, c)"
+      [class.solved-cell]="isSolved && !originalCells[r][c]"
+      />
+
+      </ng-container>
+    
+    </div>
+    <p class="error-message" *ngIf="validationMessage">
+            {{ validationMessage }}
+    </p>
+    <div class="buttons">
+
+      <button
+        class="solve-btn"
+        [disabled]="hasErrors"
+        (click)="solveSudoku()">
+        Solve Sudoku
+      </button>
+
+      <button class="example-btn" (click)="loadExample()">
+        Load Example
+      </button>
+
+      <button class="clear-btn" (click)="clearBoard()">
+        Clear Board
+      </button>
+
+    </div>
+
+    <p class="message" *ngIf="message">
+      {{ message }}
+    </p>
+
+  </div>
+
+</div>
