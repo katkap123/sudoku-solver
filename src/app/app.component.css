@@ -170,3 +170,44 @@
   }
   
   
+.timer-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 450px;
+  margin: 0 auto 15px;
+  padding: 12px 16px;
+  background: #eff6ff;
+  border-radius: 10px;
+}
+
+.timer-display {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.timer-icon {
+  font-size: 22px;
+}
+
+.timer-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e40af;
+  font-variant-numeric: tabular-nums;
+}
+
+.timer-btn {
+  background: #2563eb;
+  color: white;
+  padding: 8px 16px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.timer-btn:disabled {
+  background: #94a3b8;
+  cursor: not-allowed;
+}

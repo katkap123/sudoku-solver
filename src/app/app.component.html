@@ -33,6 +33,24 @@
       <p>Or give your sudoku to get solution</p>
     </div>
 
+    <div class="timer-container">
+
+      <div class="timer-display">
+        <span class="timer-icon">⏱</span>
+        <span class="timer-value">{{ formattedTime }}</span>
+      </div>
+
+      <button
+        class="timer-btn"
+        (click)="timerRunning ? pauseTimer() : startTimer()"
+        [disabled]="isSolved">
+
+        {{ timerRunning ? 'Pause' : 'Resume' }}
+
+      </button>
+
+    </div>
+
     <div class="sudoku-grid">
 
       <ng-container

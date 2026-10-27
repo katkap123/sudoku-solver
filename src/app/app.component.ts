@@ -1,7 +1,7 @@
 
-import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
+import { Component, OnDestroy } from '@angular/core';
 
 @Component({
   selector: 'app-root',
@@ -10,7 +10,7 @@ import { FormsModule } from '@angular/forms';
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css']
 })
-export class AppComponent {
+export class AppComponent implements OnDestroy {
   invalidCells: Set<string> = new Set();
   validationMessage = '';
   board: string[][] = Array.from(
@@ -25,8 +25,56 @@ lockedCells: boolean[][] = Array.from(
   () => Array(9).fill(false)
 );
 
+elapsedSeconds = 0;
+timerRunning = false;
+private timerInterval: ReturnType<typeof setInterval> | null = null;
+
+get formattedTime(): string {
+  const hours = Math.floor(this.elapsedSeconds / 3600);
+  const minutes = Math.floor((this.elapsedSeconds % 3600) / 60);
+  const seconds = this.elapsedSeconds % 60;
+
+  const pad = (value: number) =>
+    value.toString().padStart(2, '0');
+
+  return hours > 0
+    ? `${pad(hours)}:${pad(minutes)}:${pad(seconds)}`
+    : `${pad(minutes)}:${pad(seconds)}`;
+}
+
+startTimer(): void {
+  if (this.timerRunning) return;
+
+  this.timerRunning = true;
+
+  this.timerInterval = setInterval(() => {
+    this.elapsedSeconds++;
+  }, 1000);
+}
+
+pauseTimer(): void {
+  if (this.timerInterval !== null) {
+    clearInterval(this.timerInterval);
+    this.timerInterval = null;
+  }
+
+  this.timerRunning = false;
+}
+
+resetTimer(): void {
+  this.pauseTimer();
+  this.elapsedSeconds = 0;
+}
+
+ngOnDestroy(): void {
+  this.pauseTimer();
+}
+
+
 generateRandomSudoku(): void {
   // Create a solved Sudoku board
+  this.resetTimer();
+  this.startTimer();
   const solution: string[][] = Array.from(
     { length: 9 },
     () => Array(9).fill('X')
@@ -244,9 +292,9 @@ private shuffle<T>(array: T[]): void {
     if (this.solve(copy)) {
       this.board = copy;
       this.isSolved = true;
-      this.message = 'Sudoku solved successfully!';
-    } else {
-      this.message = 'No solution exists for this Sudoku.';
+      this.pauseTimer();
+    
+      this.message = `Sudoku solved in ${this.formattedTime}!`;
     }
   }
 
@@ -323,28 +371,28 @@ private shuffle<T>(array: T[]): void {
     return true;
   }
 
+  
   clearBoard(): void {
-    this.board = Array.from(
-      { length: 9 },
-      () => Array(9).fill('X')
-    );
 
-    this.originalCells = Array.from(
-      { length: 9 },
-      () => Array(9).fill(false)
-    );
+    for (let row = 0; row < 9; row++) {
+      for (let col = 0; col < 9; col++) {
+
+        // Clear only user-entered cells
+        if (!this.lockedCells[row][col]) {
+          this.board[row][col] = 'X';
+        }
+
+      }
+    }
 
     this.isSolved = false;
     this.message = '';
-    this.lockedCells = Array.from(
-      { length: 9 },
-      () => Array(9).fill(false)
-    );
-    
     this.validateBoard();
   }
 
   loadExample(): void {
+    this.resetTimer();
+    this.startTimer();
     const example = [
       '53XX7XXXX',
       '6XX195XXX',
