@@ -402,7 +402,10 @@ private shuffle<T>(array: T[]): void {
   onCellInput(event: Event, row: number, col: number): void {
     const input = event.target as HTMLInputElement;
 
-    if (this.lockedCells[row][col] || this.isSolved) {
+    if (
+      (this.lockedCells[row][col] && !this.reviewingImportedPuzzle) ||
+      this.isSolved
+    ) {
       input.value = this.board[row][col] === 'X'
         ? ''
         : this.board[row][col];

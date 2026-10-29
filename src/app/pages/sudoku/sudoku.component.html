@@ -103,7 +103,7 @@
         inputmode="text"
         [value]="cell === 'X' ? '' : cell"
         (input)="onCellInput($event, r, c)"
-        [disabled]="lockedCells[r][c]"
+        [disabled]="(lockedCells[r][c] && !reviewingImportedPuzzle) || isSolved"
         [class.locked-cell]="lockedCells[r][c]"
         [class.box-right]="c === 2 || c === 5"
         [class.box-bottom]="r === 2 || r === 5"
