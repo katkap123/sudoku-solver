@@ -10,13 +10,14 @@ import {
   User
 } from 'firebase/auth';
 import {
-  getDatabase,
-  ref,
-  get,
-  onValue,
-  runTransaction,
-  Unsubscribe
-} from 'firebase/database';
+    getDatabase,
+    ref,
+    get,
+    set,
+    onValue,
+    runTransaction,
+    Unsubscribe
+  } from 'firebase/database';
 
 import { environment } from '../../environment/environment';
 
@@ -323,7 +324,8 @@ export class MultiplayerWordService {
   }
 
   
-async joinRoom(
+
+  async joinRoom(
     code: string,
     name: string
   ): Promise<void> {
@@ -331,75 +333,47 @@ async joinRoom(
     const roomCode = this.validateCode(code);
     const playerName = this.validateName(name);
   
-    const target = ref(this.db, `wordRooms/${roomCode}`);
+    const roomReference = ref(
+      this.db,
+      `wordRooms/${roomCode}`
+    );
   
-    try {
-      // Read the room before starting the transaction.
-      const snapshot = await get(target);
+    // Check whether the room exists.
+    const snapshot = await get(roomReference);
   
-      if (!snapshot.exists()) {
-        throw new Error('Room not found. Check the code.');
-      }
-  
-      const existingRoom = snapshot.val() as MultiplayerRoom;
-  
-      if (existingRoom.players?.[user.uid]) {
-        return;
-      }
-  
-      if (existingRoom.status !== 'waiting') {
-        throw new Error('This game has already started.');
-      }
-  
-      if (Object.keys(existingRoom.players || {}).length >= 2) {
-        throw new Error('This room already has two players.');
-      }
-  
-      const result = await runTransaction(
-        target,
-        (room: MultiplayerRoom | null) => {
-          if (!room) return;
-  
-          if (room.players?.[user.uid]) {
-            return room;
-          }
-  
-          if (room.status !== 'waiting') return;
-  
-          if (Object.keys(room.players || {}).length >= 2) {
-            return;
-          }
-  
-          return {
-            ...room,
-            players: {
-              ...room.players,
-              [user.uid]: {
-                name: playerName,
-                score: 0,
-                foundWords: {}
-              }
-            }
-          };
-        },
-        { applyLocally: false }
-      );
-  
-      if (!result.committed) {
-        throw new Error(
-          'Could not join. Room may be full or already started.'
-        );
-      }
-  
-      console.log('Successfully joined room:', roomCode);
-  
-    } catch (error: any) {
-      console.error('Firebase joinRoom error:', error);
-      throw new Error(
-        error?.message || 'Unable to join the room.'
-      );
+    if (!snapshot.exists()) {
+      throw new Error('Room not found. Check the room code.');
     }
+  
+    const room = snapshot.val() as MultiplayerRoom;
+  
+    if (room.players?.[user.uid]) {
+      return;
+    }
+  
+    if (room.status !== 'waiting') {
+      throw new Error('Game has already started.');
+    }
+  
+    if (Object.keys(room.players || {}).length >= 2) {
+      throw new Error('Room already has two players.');
+    }
+  
+    // Add only Player 2 instead of updating the entire room.
+    const playerReference = ref(
+      this.db,
+      `wordRooms/${roomCode}/players/${user.uid}`
+    );
+  
+    await set(playerReference, {
+      name: playerName,
+      score: 0,
+      foundWords: {}
+    });
+  
+    console.log('Player joined successfully:', roomCode);
   }
+  
   
 
   async startGame(code: string): Promise<void> {
