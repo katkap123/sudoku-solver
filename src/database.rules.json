@@ -1,30 +1,14 @@
 
 {
-  "rules": {
-    ".read": false,
-    ".write": false,
-    "wordRooms": {
-      "$roomCode": {
-        ".read": "auth != null && (data.child('status').val() === 'waiting' || data.child('players').child(auth.uid).exists())",
-        ".write": "auth != null && newData.exists() && ((!data.exists() && newData.child('hostId').val() === auth.uid) || (data.exists() && (data.child('players').child(auth.uid).exists() || (data.child('status').val() === 'waiting' && data.child('players').childrenCount() === 1))))",
-        ".validate": "newData.hasChildren(['code', 'hostId', 'status', 'difficulty', 'grid', 'players', 'createdAt']) && newData.child('code').val() === $roomCode && newData.child('players').childrenCount() <= 2 && newData.child('players').child(auth.uid).exists() && newData.child('status').val().matches(/^(waiting|playing|finished)$/) && newData.child('difficulty').val().matches(/^(easy|medium|hard)$/) && (!data.exists() || (newData.child('hostId').val() === data.child('hostId').val() && newData.child('grid').val() === data.child('grid').val() && newData.child('difficulty').val() === data.child('difficulty').val() && newData.child('createdAt').val() === data.child('createdAt').val() && newData.child('code').val() === data.child('code').val())) && ((!data.exists() && newData.child('status').val() === 'waiting' && newData.child('hostId').val() === auth.uid && newData.child('players').childrenCount() === 1) || (data.exists() && ((newData.child('status').val() === data.child('status').val() && newData.child('startedAt').val() === data.child('startedAt').val() && newData.child('endsAt').val() === data.child('endsAt').val()) || (data.child('status').val() === 'waiting' && newData.child('status').val() === 'playing' && auth.uid === data.child('hostId').val() && newData.child('players').childrenCount() === 2 && newData.child('startedAt').isNumber() && newData.child('startedAt').val() >= now - 10000 && newData.child('startedAt').val() <= now + 10000 && newData.child('endsAt').val() === newData.child('startedAt').val() + 300000) || (data.child('status').val() === 'playing' && newData.child('status').val() === 'finished' && now >= data.child('endsAt').val() && newData.child('startedAt').val() === data.child('startedAt').val() && newData.child('endsAt').val() === data.child('endsAt').val()))))",
-        "players": {
-          "$uid": {
-            ".validate": "newData.hasChildren(['name', 'score']) && (auth.uid === $uid || newData.val() === data.val()) && (!data.exists() || (newData.child('name').val() === data.child('name').val() && newData.child('score').val() >= data.child('score').val() && newData.child('score').val() <= data.child('score').val() + 120))",
-            "name": {
-              ".validate": "newData.isString() && newData.val().length > 0 && newData.val().length <= 24"
-            },
-            "score": {
-              ".validate": "newData.isNumber() && newData.val() >= 0"
-            },
-            "foundWords": {
-              "$word": {
-                ".validate": "newData.val() === true && (!data.exists() || data.val() === true)"
-              }
-            }
-          }
+    "rules": {
+      ".read": false,
+      ".write": false,
+      "wordRooms": {
+        "$roomCode": {
+          ".read": "auth != null",
+          ".write": "auth != null && newData.exists()"
         }
       }
     }
   }
-}
+  
