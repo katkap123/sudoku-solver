@@ -38,11 +38,11 @@ import {
   stringLength,
   stringToByteArray,
   stringify
-} from "./chunk-STFR5TPN.js";
+} from "./chunk-YKK4PG4G.js";
 import {
   __async,
   __spreadValues
-} from "./chunk-5K356HEJ.js";
+} from "./chunk-5GCCG324.js";
 
 // node_modules/@firebase/database/dist/index.esm.js
 var name = "@firebase/database";

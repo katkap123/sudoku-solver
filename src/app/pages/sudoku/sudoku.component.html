@@ -35,7 +35,31 @@
           Generate Random Sudoku
         </button>
         <br>
-        <p>Or give your sudoku to get solution</p>
+        
+            <p>Or upload your Sudoku puzzle to get the solution</p>
+
+            <div class="sudoku-upload">
+            <label for="sudoku-image" class="upload-label">
+                📷 Upload Sudoku Image
+            </label>
+
+            <input
+                id="sudoku-image"
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                (change)="onSudokuImageSelected($event)"
+                [disabled]="isReadingImage"
+            />
+
+            <p *ngIf="isReadingImage" class="upload-status">
+                Reading Sudoku image... {{ ocrProgress }}%
+            </p>
+
+            <p *ngIf="imageUploadError" class="error-message">
+                {{ imageUploadError }}
+            </p>
+            </div>
+
       </div>
   
   
@@ -90,6 +114,13 @@
         </ng-container>
       
       </div>
+
+      <button
+        *ngIf="reviewingImportedPuzzle"
+        class="generate-btn"
+        (click)="confirmImportedPuzzle()">
+        ✓ Confirm Imported Puzzle
+        </button>
   
       <div class="history-controls">
   
@@ -115,10 +146,10 @@
       <div class="buttons">
   
         <button
-          class="solve-btn"
-          [disabled]="hasErrors"
-          (click)="solveSudoku()">
-          Solve Sudoku
+        class="solve-btn"
+        [disabled]="hasErrors || reviewingImportedPuzzle || isReadingImage"
+        (click)="solveSudoku()">
+        Solve Sudoku
         </button>
   
         <button class="example-btn" (click)="loadExample()">
