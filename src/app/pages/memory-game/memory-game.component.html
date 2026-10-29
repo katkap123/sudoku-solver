@@ -1,0 +1,113 @@
+
+<div class="memory-page">
+
+    <div class="memory-container">
+  
+      <header class="game-header">
+        <h1>🧠 Memory Match</h1>
+        <p>Flip cards, find pairs, and train your memory!</p>
+      </header>
+  
+      <div class="game-settings">
+        <label for="difficulty">Difficulty</label>
+  
+        <select
+          id="difficulty"
+          [(ngModel)]="difficulty"
+          (ngModelChange)="newGame()">
+  
+          <option value="easy">Easy (4×3)</option>
+          <option value="medium">Medium (4×4)</option>
+          <option value="hard">Hard (6×4)</option>
+  
+        </select>
+      </div>
+  
+      <div class="stats">
+  
+        <div class="stat-card">
+          <span>⏱ Time</span>
+          <strong>{{ formattedTime }}</strong>
+        </div>
+  
+        <div class="stat-card">
+          <span>🎯 Moves</span>
+          <strong>{{ moves }}</strong>
+        </div>
+  
+        <div class="stat-card">
+          <span>🏆 Pairs</span>
+          <strong>{{ matchedPairs }}/{{ totalPairs }}</strong>
+        </div>
+  
+      </div>
+  
+      <div
+        class="memory-grid"
+        [class.easy]="difficulty === 'easy'"
+        [class.medium]="difficulty === 'medium'"
+        [class.hard]="difficulty === 'hard'">
+  
+        <button
+          *ngFor="let card of cards"
+          type="button"
+          class="memory-card"
+          [class.flipped]="card.flipped"
+          [class.matched]="card.matched"
+          [disabled]="card.flipped || card.matched || isChecking || gameCompleted"
+          [attr.aria-label]="card.flipped || card.matched ? card.symbol : 'Hidden card'"
+          (click)="flipCard(card)">
+  
+          <span class="card-inner">
+  
+            <span class="card-front">?</span>
+  
+            <span class="card-back">
+              {{ card.symbol }}
+            </span>
+  
+          </span>
+  
+        </button>
+  
+      </div>
+  
+      <div class="game-actions">
+  
+        <button class="new-game-btn" (click)="newGame()">
+          🎲 New Game
+        </button>
+  
+        <button class="restart-btn" (click)="restartGame()">
+          ↻ Restart
+        </button>
+  
+      </div>
+  
+      <div class="win-message" *ngIf="gameCompleted">
+        <h2>🎉 Congratulations!</h2>
+        <p>You matched all {{ totalPairs }} pairs!</p>
+        <p>Time: {{ formattedTime }} | Moves: {{ moves }}</p>
+  
+        <div class="stars">
+          <span *ngFor="let star of [1, 2, 3]">
+            {{ star <= starRating ? '⭐' : '☆' }}
+          </span>
+        </div>
+      </div>
+  
+      <section class="game-rules">
+        <h2>How to Play Memory Match</h2>
+        <p>
+          Flip two cards at a time and try to find matching
+          symbols. Matching cards stay visible, while
+          unmatched cards flip back over. Remember the
+          positions of previously revealed cards to complete
+          the game in fewer moves.
+        </p>
+      </section>
+  
+    </div>
+  
+  </div>
+  

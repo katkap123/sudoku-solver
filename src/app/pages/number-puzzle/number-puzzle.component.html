@@ -1,0 +1,118 @@
+
+<div class="puzzle-page">
+
+    <div class="puzzle-container">
+  
+      <header class="game-header">
+        <h1>🔢 Number Puzzle</h1>
+        <p>Slide the tiles into the correct order!</p>
+      </header>
+  
+      <div class="game-settings">
+        <label for="difficulty">Difficulty</label>
+  
+        <select
+          id="difficulty"
+          [(ngModel)]="difficulty"
+          (ngModelChange)="newGame()">
+  
+          <option value="easy">Easy (3×3)</option>
+          <option value="medium">Medium (4×4)</option>
+          <option value="hard">Hard (5×5)</option>
+  
+        </select>
+      </div>
+  
+      <div class="stats">
+        <div class="stat-card">
+          <span>⏱ Time</span>
+          <strong>{{ formattedTime }}</strong>
+        </div>
+  
+        <div class="stat-card">
+          <span>🎯 Moves</span>
+          <strong>{{ moves }}</strong>
+        </div>
+  
+        <div class="stat-card">
+          <span>🧩 Board</span>
+          <strong>{{ gridSize }}×{{ gridSize }}</strong>
+        </div>
+      </div>
+  
+      <div
+        class="number-grid"
+        [style.grid-template-columns]="'repeat(' + gridSize + ', 1fr)'">
+  
+        <button
+          *ngFor="let tile of tiles; let i = index"
+          type="button"
+          class="number-tile"
+          [class.empty]="tile === 0"
+          [class.correct]="tile !== 0 && isCorrectPosition(i)"
+          [disabled]="tile === 0 || gameCompleted || showGoal"
+          (click)="moveTile(i)"
+          [attr.aria-label]="tile === 0 ? 'Empty space' : 'Tile ' + tile">
+  
+          {{ tile === 0 ? '' : tile }}
+  
+        </button>
+  
+      </div>
+  
+      <div class="game-message" *ngIf="gameCompleted">
+        <h2>🎉 Congratulations!</h2>
+        <p>
+          You solved the puzzle in {{ moves }} moves
+          and {{ formattedTime }}!
+        </p>
+      </div>
+  
+      <div class="goal-preview" *ngIf="showGoal">
+        <h3>Goal Arrangement</h3>
+  
+        <div
+          class="goal-grid"
+          [style.grid-template-columns]="'repeat(' + gridSize + ', 1fr)'">
+  
+          <div
+            *ngFor="let tile of tiles; let i = index"
+            class="goal-tile"
+            [class.empty]="i === tiles.length - 1">
+  
+            {{ i === tiles.length - 1 ? '' : i + 1 }}
+  
+          </div>
+  
+        </div>
+      </div>
+  
+      <div class="game-actions">
+        <button class="new-btn" (click)="newGame()">
+          🎲 New Game
+        </button>
+  
+        <button class="restart-btn" (click)="restartGame()">
+          ↻ Restart
+        </button>
+  
+        <button class="goal-btn" (click)="toggleGoal()">
+          {{ showGoal ? 'Hide Goal' : 'Show Goal' }}
+        </button>
+      </div>
+  
+      <section class="game-rules">
+        <h2>How to Play Number Puzzle</h2>
+        <p>
+          Arrange the numbered tiles in ascending order
+          by sliding them into the empty space.
+          Only tiles directly next to the empty space
+          can move. Complete the puzzle with the fewest
+          moves and shortest time possible.
+        </p>
+      </section>
+  
+    </div>
+  
+  </div>
+  

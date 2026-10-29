@@ -1,0 +1,198 @@
+
+:host { display: block; font-family: Arial, sans-serif; }
+* { box-sizing: border-box; }
+
+.solo-page {
+  min-height: 100vh;
+  padding: 25px 12px;
+  background: linear-gradient(135deg, #eef2ff, #e0f2fe);
+}
+
+.game-container {
+  max-width: 760px;
+  margin: auto;
+  padding: 24px;
+  background: #fff;
+  border-radius: 20px;
+  box-shadow: 0 12px 35px rgba(30, 41, 59, .1);
+}
+
+.back-link {
+  display: inline-block;
+  margin-bottom: 18px;
+  color: #6d28d9;
+  text-decoration: none;
+  font-weight: 700;
+}
+
+.game-header {
+  padding: 25px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #6d28d9, #2563eb);
+  color: #fff;
+  text-align: center;
+}
+
+.game-header h1 { margin: 0 0 8px; }
+.game-header p { margin: 0; }
+
+.toolbar {
+  display: flex;
+  justify-content: center;
+  margin: 24px 0;
+}
+
+.toolbar label { font-weight: 700; color: #334155; }
+
+.toolbar select {
+  display: block;
+  width: 230px;
+  margin-top: 8px;
+  padding: 11px;
+  border: 1px solid #cbd5e1;
+  border-radius: 8px;
+  background: white;
+}
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.stat {
+  padding: 14px;
+  text-align: center;
+  border-radius: 12px;
+  background: #f1f5ff;
+}
+
+.stat span { display: block; color: #64748b; font-size: 13px; }
+.stat strong {
+  display: block;
+  margin-top: 7px;
+  color: #6d28d9;
+  font-size: 23px;
+}
+
+.letter-grid {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  max-width: 600px;
+  margin: auto;
+  padding: 10px;
+  border-radius: 14px;
+  background: #ddd6fe;
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.letter-cell {
+  min-width: 0;
+  aspect-ratio: 1;
+  padding: 0;
+  border: none;
+  border-radius: 5px;
+  background: #fff;
+  color: #1e293b;
+  font-size: clamp(12px, 2.5vw, 22px);
+  font-weight: 800;
+  cursor: pointer;
+  touch-action: none;
+  user-select: none;
+}
+
+.letter-cell.selected { background: #fbbf24; color: #78350f; }
+.letter-cell.found { background: #86efac; color: #166534; }
+.letter-cell.answer-cell { background: #fb923c; color: #fff; }
+.letter-cell.selected.found { background: #fbbf24; }
+
+.actions {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 25px;
+}
+
+.actions button {
+  padding: 12px 18px;
+  border: none;
+  border-radius: 9px;
+  background: #e2e8f0;
+  color: #334155;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.actions .primary-btn { background: #6d28d9; color: #fff; }
+.actions .answer-btn { background: #f59e0b; color: #fff; }
+.actions button:disabled { opacity: .5; cursor: not-allowed; }
+
+.found-section, .answers-panel, .instructions {
+  margin-top: 25px;
+  padding: 20px;
+  border-radius: 12px;
+  background: #f8fafc;
+}
+
+.found-section h2, .answers-panel h2, .instructions h2 {
+  margin-top: 0;
+  font-size: 19px;
+  color: #1e293b;
+}
+
+.word-chips, .answer-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.word-chips span {
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: #dcfce7;
+  color: #166534;
+  font-weight: 700;
+}
+
+.answers-panel { background: #fffbeb; }
+.answer-list { max-height: 300px; overflow-y: auto; }
+
+.answer-list button {
+  padding: 8px 12px;
+  border: 1px solid #fcd34d;
+  border-radius: 8px;
+  background: white;
+  color: #92400e;
+  cursor: pointer;
+}
+
+.answer-list button.active { background: #f97316; color: white; }
+
+.notice { padding: 20px; text-align: center; color: #6d28d9; }
+.notice.error { color: #b91c1c; }
+
+.win-message {
+  margin-top: 24px;
+  padding: 24px;
+  border-radius: 12px;
+  text-align: center;
+  background: #dcfce7;
+  color: #166534;
+}
+
+.instructions p { color: #64748b; line-height: 1.7; }
+
+@media (max-width: 520px) {
+  .solo-page { padding: 10px 5px; }
+  .game-container { padding: 12px; }
+  .game-header h1 { font-size: 23px; }
+  .letter-grid { gap: 2px; padding: 5px; }
+  .letter-cell { font-size: clamp(10px, 3vw, 16px); border-radius: 3px; }
+  .stat { padding: 10px 4px; }
+  .stat strong { font-size: 18px; }
+}

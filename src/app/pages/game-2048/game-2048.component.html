@@ -1,0 +1,113 @@
+
+<div class="game-page">
+
+    <div class="game-container">
+  
+      <header class="game-header">
+        <div>
+          <h1>2048</h1>
+          <p>Join the numbers and reach 2048!</p>
+        </div>
+  
+        <div class="score-container">
+          <div class="score-box">
+            <span>SCORE</span>
+            <strong>{{ score }}</strong>
+          </div>
+  
+          <div class="score-box">
+            <span>BEST</span>
+            <strong>{{ bestScore }}</strong>
+          </div>
+        </div>
+      </header>
+  
+      <div class="game-toolbar">
+        <button class="new-game-btn" (click)="newGame()">
+          🎲 New Game
+        </button>
+  
+        <button
+          class="undo-btn"
+          (click)="undo()"
+          [disabled]="!previousState">
+          ↶ Undo
+        </button>
+      </div>
+  
+      <div
+        class="board-wrapper"
+        (touchstart)="onTouchStart($event)"
+        (touchend)="onTouchEnd($event)">
+  
+        <div class="game-board">
+  
+          <div
+            *ngFor="let tile of board"
+            class="tile"
+            [ngClass]="getTileClass(tile)">
+  
+            {{ tile === 0 ? '' : tile }}
+  
+          </div>
+  
+        </div>
+  
+        <div class="game-overlay" *ngIf="won && !keepPlaying">
+          <h2>🎉 You Win!</h2>
+          <p>You reached 2048!</p>
+  
+          <button (click)="continueGame()">
+            Keep Playing
+          </button>
+  
+          <button (click)="newGame()">
+            New Game
+          </button>
+        </div>
+  
+        <div
+          class="game-overlay"
+          *ngIf="gameOver && (!won || keepPlaying)">
+  
+          <h2>Game Over!</h2>
+          <p>Final Score: {{ score }}</p>
+  
+          <button (click)="newGame()">
+            Try Again
+          </button>
+  
+        </div>
+  
+      </div>
+  
+      <div class="direction-controls">
+        <button (click)="move('up')" aria-label="Move up">↑</button>
+  
+        <div class="direction-row">
+          <button (click)="move('left')" aria-label="Move left">←</button>
+          <button (click)="move('down')" aria-label="Move down">↓</button>
+          <button (click)="move('right')" aria-label="Move right">→</button>
+        </div>
+      </div>
+  
+      <section class="instructions">
+        <h2>How to Play 2048</h2>
+  
+        <p>
+          Use your arrow keys, swipe on mobile, or use
+          the direction buttons to move the tiles.
+          When two tiles with the same number touch,
+          they merge into one tile with double the value.
+        </p>
+  
+        <p>
+          Combine tiles to reach 2048 and earn the
+          highest score possible!
+        </p>
+      </section>
+  
+    </div>
+  
+  </div>
+  

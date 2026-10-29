@@ -1,0 +1,67 @@
+
+<div class="mode-page">
+    <div class="mode-container">
+  
+      <div class="game-header">
+        <h1>🔤 Word Search Puzzle</h1>
+        <p>Find hidden words and challenge yourself!</p>
+      </div>
+  
+      <h2>Choose Your Game Mode</h2>
+  
+      <div class="mode-options">
+  
+        <div class="mode-card">
+          <div class="mode-icon">👤</div>
+  
+          <h3>Single Player</h3>
+  
+          <p>
+            Play on your own, discover hidden words,
+            and improve your vocabulary.
+          </p>
+  
+          <ul>
+            <li>Easy, Medium, and Hard</li>
+            <li>Find all valid words</li>
+            <li>Track your progress</li>
+            <li>Reveal answers anytime</li>
+          </ul>
+  
+          <button
+            type="button"
+            class="solo-btn"
+            (click)="playSingle()">
+            Play Single Player
+          </button>
+        </div>
+  
+        <div class="mode-card">
+          <div class="mode-icon">👥</div>
+  
+          <h3>Two Players</h3>
+  
+          <p>
+            Invite a friend with a room code
+            and compete on the same word grid.
+          </p>
+  
+          <ul>
+            <li>Share a six-character room code</li>
+            <li>5-minute countdown</li>
+            <li>Live scoring</li>
+            <li>Winner announced at the end</li>
+          </ul>
+  
+          <button
+            type="button"
+            class="multiplayer-btn"
+            (click)="playMultiplayer()">
+            Play Two Players
+          </button>
+        </div>
+  
+      </div>
+    </div>
+  </div>
+  

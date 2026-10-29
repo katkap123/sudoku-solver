@@ -1,0 +1,134 @@
+
+.hero {
+    padding: 85px 20px;
+    text-align: center;
+    background: linear-gradient(
+      135deg, #7255e8, #3478f6
+    );
+    color: white;
+  }
+  
+  .hero-content {
+    max-width: 760px;
+    margin: auto;
+  }
+  
+  .eyebrow {
+    font-size: 13px;
+    letter-spacing: 2px;
+    font-weight: 800;
+  }
+  
+  .hero h1 {
+    font-size: clamp(32px, 5vw, 54px);
+    margin: 18px 0;
+  }
+  
+  .hero p {
+    font-size: 17px;
+    line-height: 1.8;
+    margin-bottom: 30px;
+  }
+  
+  .hero-btn, .play-btn {
+    display: inline-block;
+    background: #ffd166;
+    color: #25345a;
+    padding: 14px 26px;
+    border-radius: 12px;
+    text-decoration: none;
+    font-weight: 800;
+  }
+  
+  .games-section {
+    max-width: 1100px;
+    margin: auto;
+    padding: 65px 20px;
+    text-align: center;
+  }
+  
+  .section-description {
+    color: #64748b;
+    margin-bottom: 32px;
+  }
+  
+  .games-grid {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 20px;
+  }
+  
+  .game-card {
+    background: white;
+    border-radius: 18px;
+    padding: 28px 20px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.06);
+    transition: transform 0.2s ease;
+  }
+  
+  .game-card:hover {
+    transform: translateY(-5px);
+  }
+  
+  .game-icon {
+    font-size: 48px;
+  }
+  
+  .game-card h3 {
+    color: #25345a;
+  }
+  
+  .game-card p {
+    color: #64748b;
+    line-height: 1.6;
+    min-height: 110px;
+  }
+  
+  .coming-soon {
+    color: #7255e8;
+    font-weight: 700;
+  }
+  
+  .about-section {
+    background: #eef0ff;
+    text-align: center;
+    padding: 60px 20px;
+  }
+  
+  .about-section > p {
+    max-width: 720px;
+    margin: 20px auto;
+    line-height: 1.8;
+  }
+  
+  .benefits {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 30px;
+  }
+  
+  .benefits div {
+    background: white;
+    border-radius: 12px;
+    padding: 18px;
+    font-weight: 700;
+  }
+  
+  @media (max-width: 900px) {
+    .games-grid {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+  }
+  
+  @media (max-width: 520px) {
+    .games-grid {
+      grid-template-columns: 1fr;
+    }
+  
+    .hero {
+      padding: 55px 20px;
+    }
+  }
+  

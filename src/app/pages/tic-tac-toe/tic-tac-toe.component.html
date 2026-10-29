@@ -1,0 +1,117 @@
+
+<div class="ttt-page">
+
+    <div class="ttt-container">
+  
+      <header class="game-heading">
+        <h1>🎮 Tic Tac Toe</h1>
+        <p>Get three in a row to win!</p>
+      </header>
+  
+      <div class="game-settings">
+  
+        <div class="setting">
+          <label for="gameMode">Game Mode</label>
+  
+          <select
+            id="gameMode"
+            [(ngModel)]="mode"
+            (ngModelChange)="changeMode()">
+  
+            <option value="computer">Vs Computer</option>
+            <option value="friend">Two Players</option>
+  
+          </select>
+        </div>
+  
+        <div class="setting" *ngIf="mode === 'computer'">
+          <label for="difficulty">Difficulty</label>
+  
+          <select
+            id="difficulty"
+            [(ngModel)]="difficulty"
+            (ngModelChange)="changeDifficulty()">
+  
+            <option value="easy">Easy</option>
+            <option value="medium">Medium</option>
+            <option value="hard">Hard</option>
+  
+          </select>
+        </div>
+  
+      </div>
+  
+      <div class="scoreboard">
+  
+        <div class="score player-x">
+          <span>Player X</span>
+          <strong>{{ scores.X }}</strong>
+        </div>
+  
+        <div class="score draws">
+          <span>Draws</span>
+          <strong>{{ scores.draw }}</strong>
+        </div>
+  
+        <div class="score player-o">
+          <span>
+            {{ mode === 'computer' ? 'Computer' : 'Player O' }}
+          </span>
+          <strong>{{ scores.O }}</strong>
+        </div>
+  
+      </div>
+  
+      <div
+        class="game-status"
+        role="status"
+        aria-live="polite">
+        {{ statusMessage }}
+      </div>
+  
+      <div class="ttt-board">
+  
+        <button
+          *ngFor="let cell of board; let i = index"
+          type="button"
+          class="ttt-cell"
+          [class.x-cell]="cell === 'X'"
+          [class.o-cell]="cell === 'O'"
+          [class.winning-cell]="isWinningCell(i)"
+          [disabled]="!!cell || !!winner"
+          [attr.aria-label]="'Cell ' + (i + 1)"
+          (click)="makeMove(i)">
+  
+          {{ cell }}
+  
+        </button>
+  
+      </div>
+  
+      <div class="game-actions">
+  
+        <button class="new-game-btn" (click)="newRound()">
+          ↻ New Round
+        </button>
+  
+        <button class="reset-btn" (click)="resetScores()">
+          Reset Scores
+        </button>
+  
+      </div>
+  
+      <div class="game-rules">
+        <h2>How to Play Tic Tac Toe</h2>
+        <p>
+          Players take turns placing X or O on a 3×3 grid.
+          The first player to get three matching symbols
+          horizontally, vertically, or diagonally wins.
+          If all nine cells are filled without a winner,
+          the game ends in a draw.
+        </p>
+      </div>
+  
+    </div>
+  
+  </div>
+  

@@ -1,0 +1,128 @@
+
+<div class="solo-page">
+    <main class="game-container">
+      <a routerLink="/word-puzzle" class="back-link">
+        ← Game Modes
+      </a>
+  
+      <header class="game-header">
+        <h1>🔤 Word Search</h1>
+        <p>Single Player Challenge</p>
+      </header>
+  
+      <div class="toolbar">
+        <label>
+          Difficulty
+          <select
+            [(ngModel)]="difficulty"
+            (ngModelChange)="newPuzzle()">
+            <option value="easy">Easy (8 × 8)</option>
+            <option value="medium">Medium (10 × 10)</option>
+            <option value="hard">Hard (12 × 12)</option>
+          </select>
+        </label>
+      </div>
+  
+      <div class="stats">
+        <div class="stat">
+          <span>⏱ Time</span>
+          <strong>{{ formattedTime }}</strong>
+        </div>
+        <div class="stat">
+          <span>✓ Found</span>
+          <strong>{{ foundWords.size }} / {{ totalUniqueWords }}</strong>
+        </div>
+        <div class="stat">
+          <span>Progress</span>
+          <strong>{{ progress }}%</strong>
+        </div>
+      </div>
+  
+      <div *ngIf="isLoading" class="notice">
+        Generating your puzzle...
+      </div>
+  
+      <div *ngIf="errorMessage" class="notice error">
+        {{ errorMessage }}
+      </div>
+  
+      <div
+        *ngIf="!isLoading && grid.length"
+        class="letter-grid"
+        [style.grid-template-columns]="'repeat(' + size + ', 1fr)'"
+        (pointermove)="onPointerMove($event)">
+        <ng-container *ngFor="let row of grid; let r = index">
+          <button
+            *ngFor="let letter of row; let c = index"
+            type="button"
+            class="letter-cell"
+            [class.selected]="isSelected(r * size + c)"
+            [class.found]="isFound(r * size + c)"
+            [class.answer-cell]="isAnswerCell(r * size + c)"
+            [attr.data-cell-index]="r * size + c"
+            (pointerdown)="startSelection(r * size + c, $event)">
+            {{ letter }}
+          </button>
+        </ng-container>
+      </div>
+  
+      <section *ngIf="discoveredWords.length" class="found-section">
+        <h2>Words Discovered</h2>
+        <div class="word-chips">
+          <span *ngFor="let word of discoveredWords">
+            ✓ {{ word }}
+          </span>
+        </div>
+      </section>
+  
+      <div class="actions">
+        <button
+          class="primary-btn"
+          [disabled]="isLoading"
+          (click)="newPuzzle()">
+          🎲 New Puzzle
+        </button>
+        <button
+          [disabled]="isLoading || !grid.length"
+          (click)="restartPuzzle()">
+          ↻ Restart
+        </button>
+        <button
+          class="answer-btn"
+          [disabled]="isLoading || !grid.length"
+          (click)="toggleAnswers()">
+          {{ showAnswers ? 'Hide Answers' : '💡 Show Answers' }}
+        </button>
+      </div>
+  
+      <section *ngIf="showAnswers" class="answers-panel">
+        <h2>All Possible Words ({{ answerWords.length }})</h2>
+        <p>Select a word to highlight its location.</p>
+        <div class="answer-list">
+          <button
+            *ngFor="let word of answerWords"
+            type="button"
+            [class.active]="selectedAnswer === word"
+            (click)="selectAnswer(word)">
+            {{ word }}
+          </button>
+        </div>
+      </section>
+  
+      <section *ngIf="completed" class="win-message">
+        <h2>🎉 Congratulations!</h2>
+        <p>You found all {{ totalUniqueWords }} words.</p>
+        <p>Time: {{ formattedTime }}</p>
+      </section>
+  
+      <section class="instructions">
+        <h2>How to Play</h2>
+        <p>
+          Drag or swipe across letters to form English words.
+          Words may run horizontally, vertically, diagonally,
+          or backwards. Valid words turn green.
+        </p>
+      </section>
+    </main>
+  </div>
+  
