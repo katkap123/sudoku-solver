@@ -398,6 +398,31 @@ private shuffle<T>(array: T[]): void {
   isSolved = false;
 
   
+  checkSudokuCompletion(): void {
+    if (this.isSolved || this.reviewingImportedPuzzle) {
+      return;
+    }
+
+    // Check that all 81 cells have numbers
+    const isComplete = this.board.every(row =>
+      row.every(cell => cell !== 'X')
+    );
+
+    if (!isComplete) return;
+
+    // Check Sudoku rules
+    if (!this.isBoardValid()) return;
+
+    // Stop timer and mark game as solved
+    this.pauseTimer();
+    this.isSolved = true;
+
+    const completionTime = this.formattedTime;
+
+    this.message = `Congratulations! Sudoku solved in ${completionTime}!`;
+
+    alert(`🎉 Congratulations!\nYou solved the Sudoku in ${completionTime}!`);
+  }
   
   onCellInput(event: Event, row: number, col: number): void {
     const input = event.target as HTMLInputElement;
@@ -437,6 +462,8 @@ private shuffle<T>(array: T[]): void {
 
     this.message = '';
     this.validateBoard();
+
+    this.checkSudokuCompletion();
   }
 
 
@@ -467,6 +494,7 @@ private shuffle<T>(array: T[]): void {
     this.undoStack.push(action);
     this.message = '';
     this.validateBoard();
+    this.checkSudokuCompletion();
   }
 
   clearBoard(): void {
