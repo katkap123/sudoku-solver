@@ -114,7 +114,9 @@
           <div
             *ngIf="players.length === 1"
             class="player-card waiting-player">
-            <span>Waiting for Player 2...</span>
+            <p *ngIf="playerCount < 2">
+                Waiting for at least one more player...
+            </p>
             <strong>—</strong>
           </div>
         </div>
@@ -148,7 +150,9 @@
             with your friend.
           </p>
   
-          <p>{{ players.length }} / 2 players connected</p>
+          <p>
+            <strong>{{ playerCount }} / 10</strong> players connected
+          </p>
   
           <button
             class="primary-btn"
