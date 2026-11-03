@@ -2,7 +2,10 @@
 import { Injectable } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { firstValueFrom } from 'rxjs';
-
+import {
+    getFunctions,
+    httpsCallable
+  } from 'firebase/functions';
 import { getApp, getApps, initializeApp } from 'firebase/app';
 import {
   getAuth,
@@ -57,6 +60,7 @@ export class MultiplayerWordService {
   private auth = getAuth(this.app);
   private db = getDatabase(this.app);
 
+  private functions = getFunctions(this.app, 'us-central1');
   private readonly durationMs = 300000;
   private readonly letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
   private readonly dictionaryUrl =
@@ -94,6 +98,26 @@ export class MultiplayerWordService {
       }
     );
   }
+
+
+    async leaveRoom(code: string): Promise<void> {
+        await this.ensureSignedIn();
+    
+        const roomCode = this.validateCode(code);
+    
+        const leaveWordRoom = httpsCallable<
+        { code: string },
+        { left: boolean }
+        >(this.functions, 'leaveWordRoom');
+    
+        const result = await leaveWordRoom({
+        code: roomCode
+        });
+    
+        if (!result.data.left) {
+        throw new Error('Unable to leave the room.');
+        }
+    }  
 
   private now(): number {
     return Date.now() + this.serverOffsetMs;
@@ -323,92 +347,45 @@ export class MultiplayerWordService {
     throw new Error('Unable to create a room. Try again.');
   }
 
-  
-
-  async joinRoom(
+async joinRoom(
     code: string,
     name: string
   ): Promise<void> {
-    const user = await this.ensureSignedIn();
+    await this.ensureSignedIn();
+  
     const roomCode = this.validateCode(code);
     const playerName = this.validateName(name);
   
-    const roomReference = ref(
-      this.db,
-      `wordRooms/${roomCode}`
-    );
+    const joinWordRoom = httpsCallable<
+      { code: string; name: string },
+      { code: string }
+    >(this.functions, 'joinWordRoom');
   
-    // Check whether the room exists.
-    const snapshot = await get(roomReference);
+    await joinWordRoom({
+      code: roomCode,
+      name: playerName
+    });
+  }
   
-    if (!snapshot.exists()) {
-      throw new Error('Room not found. Check the room code.');
-    }
   
-    const room = snapshot.val() as MultiplayerRoom;
+async startGame(code: string): Promise<void> {
+    await this.ensureSignedIn();
   
-    if (room.players?.[user.uid]) {
-      return;
-    }
+    const roomCode = this.validateCode(code);
   
-    if (room.status !== 'waiting') {
-      throw new Error('Game has already started.');
-    }
+    const startWordGame = httpsCallable<
+      { code: string },
+      { started: boolean }
+    >(this.functions, 'startWordGame');
   
-    if (Object.keys(room.players || {}).length >= 2) {
-      throw new Error('Room already has two players.');
-    }
-  
-    // Add only Player 2 instead of updating the entire room.
-    const playerReference = ref(
-      this.db,
-      `wordRooms/${roomCode}/players/${user.uid}`
-    );
-  
-    await set(playerReference, {
-      name: playerName,
-      score: 0,
-      foundWords: {}
+    const result = await startWordGame({
+      code: roomCode
     });
   
-    console.log('Player joined successfully:', roomCode);
-  }
-  
-  
-
-  async startGame(code: string): Promise<void> {
-    const user = await this.ensureSignedIn();
-    const roomCode = this.validateCode(code);
-    const target = ref(this.db, `wordRooms/${roomCode}`);
-    await get(target);
-    const result = await runTransaction(
-      ref(this.db, `wordRooms/${roomCode}`),
-      (room: MultiplayerRoom | null) => {
-        if (!room) return;
-        if (room.hostId !== user.uid) return;
-        if (room.status !== 'waiting') return;
-
-        if (Object.keys(room.players || {}).length !== 2) {
-          return;
-        }
-
-        const start = this.now();
-
-        room.status = 'playing';
-        room.startedAt = start;
-        room.endsAt = start + this.durationMs;
-
-        return room;
-      },
-      { applyLocally: false }
-    );
-
-    if (!result.committed) {
-      throw new Error(
-        'Only the host can start a room with two players.'
-      );
+    if (!result.data.started) {
+      throw new Error('Unable to start the game.');
     }
-  }
+  }  
 
   private wordFromCells(
     grid: string[][],

@@ -151,10 +151,11 @@
           <p>{{ players.length }} / 2 players connected</p>
   
           <button
-            *ngIf="room?.status === 'waiting' && isHost"
+            class="primary-btn"
+            type="button"
             (click)="startGame()"
-            [disabled]="playerCount < 2">
-            ▶ Start Game
+            [disabled]="loading || !canStart">
+            ▶ Start Game ({{ playerCount }} Players)
             </button>
           <p *ngIf="!isHost">
             Waiting for the host to start...

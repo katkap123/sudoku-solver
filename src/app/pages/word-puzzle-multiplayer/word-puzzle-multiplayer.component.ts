@@ -104,21 +104,25 @@ import {
       return this.grid.length;
     }
   
+    
     get players(): {
-      id: string;
-      name: string;
-      score: number;
+        id: string;
+        name: string;
+        score: number;
     }[] {
-      if (!this.room) return [];
-  
-      return Object.entries(this.room.players || {}).map(
-        ([id, player]) => ({
-          id,
-          name: player.name,
-          score: player.score || 0
-        })
-      );
-    }
+        if (!this.room) return [];
+    
+        return Object.entries(this.room.players || {})
+        .map(([id, player]) => ({
+            id,
+            name: player.name,
+            score: player.score || 0
+        }))
+        .sort((a, b) =>
+            b.score - a.score ||
+            a.name.localeCompare(b.name)
+        );
+    }  
   
     get myPlayer() {
       return this.room?.players?.[this.myId];
@@ -133,11 +137,12 @@ import {
     }
   
     get canStart(): boolean {
-      return !!this.room &&
+        return !!this.room &&
         this.isHost &&
         this.room.status === 'waiting' &&
-        this.players.length === 2;
-    }
+        this.playerCount >= 2 &&
+        this.playerCount <= 10;
+    }  
   
     get isPlaying(): boolean {
       return this.room?.status === 'playing' &&
@@ -157,22 +162,32 @@ import {
       return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
     }
   
+    
     get winnerMessage(): string {
-      if (this.players.length < 2) return '';
-  
-      const sorted = [...this.players].sort(
-        (a, b) => b.score - a.score
-      );
-  
-      const first = sorted[0];
-      const second = sorted[1];
-  
-      if (first.score === second.score) {
-        return `It's a tie! Both players scored ${first.score} points.`;
-      }
-  
-      return `${first.name} wins with ${first.score} points!`;
-    }
+        const players = this.players;
+    
+        if (players.length === 0) {
+        return 'No players available.';
+        }
+    
+        const highestScore = players[0].score;
+    
+        const winners = players.filter(
+        player => player.score === highestScore
+        );
+    
+        if (winners.length === 1) {
+        return `${winners[0].name} wins with ${highestScore} points! 🏆`;
+        }
+    
+        if (winners.length === players.length) {
+        return `It's a tie! All ${winners.length} players scored ${highestScore} points.`;
+        }
+    
+        const names = winners.map(player => player.name).join(', ');
+    
+        return `It's a tie between ${names}! Each scored ${highestScore} points.`;
+    }  
   
     get answerWords(): string[] {
       return [...new Set(
@@ -514,8 +529,26 @@ import {
         this.errorMessage = 'Could not copy the room code.';
       }
     }
-  
-    leaveRoom(): void {
+
+    async leaveRoom(): Promise<void> {
+        if (!this.roomCode || this.loading) return;
+    
+        this.loading = true;
+        this.errorMessage = '';
+    
+        try {
+        await this.multiplayer.leaveRoom(this.roomCode);
+    
+        this.clearRoomLocally();
+        this.successMessage = 'You left the room.';
+        } catch (error) {
+        this.errorMessage = this.getError(error);
+        } finally {
+        this.loading = false;
+        }
+    }  
+    
+    clearRoomLocally(): void {
       this.unsubscribeRoom?.();
       this.unsubscribeRoom = null;
       this.stopTimer();
