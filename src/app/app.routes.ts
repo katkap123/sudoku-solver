@@ -20,6 +20,12 @@ export const routes: Routes = [
     title: 'Free Word Search Puzzle Online | Play Sudoku Online Free'
   },
   {
+    path: 'word-scramble',
+    loadComponent: () =>
+      import('./pages/word-scramble/word-scramble.component')
+        .then(m => m.WordScrambleComponent)
+  },
+  {
     path: 'word-puzzle',
     loadComponent: () =>
       import('./pages/word-puzzle/word-puzzle.component')

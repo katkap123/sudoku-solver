@@ -52,7 +52,7 @@ import {
     showAnswers = false;
     selectedAnswer: string | null = null;
     allPossibleWords: WordMatch[] = [];
-  
+    
     private startCell = -1;
     private pointerId: number | null = null;
     private unsubscribeRoom: Unsubscribe | null = null;
@@ -90,6 +90,10 @@ import {
       } catch (error) {
         this.errorMessage = this.getError(error);
       }
+    }
+
+    get playerCount(): number {
+        return Object.keys(this.room?.players || {}).length;
     }
   
     get grid(): string[][] {

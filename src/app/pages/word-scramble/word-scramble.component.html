@@ -1,0 +1,128 @@
+
+<div class="scramble-page">
+    <div class="scramble-card">
+      <h1>🔤 Word Scramble Game</h1>
+      <p>Unscramble letters and discover the hidden word!</p>
+  
+      <div class="controls">
+        <label for="scramble-difficulty">Difficulty</label>
+  
+        <select
+          id="scramble-difficulty"
+          [(ngModel)]="difficulty"
+          (ngModelChange)="newGame()">
+          <option value="easy">Easy</option>
+          <option value="medium">Medium</option>
+          <option value="hard">Hard</option>
+        </select>
+  
+        <button [disabled]="loading" (click)="newGame()">New Game</button>
+      </div>
+  
+      <div class="stats">
+        <span>🏆 Level: {{ level }}</span>
+        <span>⭐ Score: {{ score }}</span>
+        <span>⏱ {{ formattedTime }}</span>
+        <span>🧩 Solved: {{ solvedCount }}</span>
+      </div>
+      
+      <div class="level-info">
+        <p>
+          Level {{ level }} / 10
+          — {{ levelProgress }} of 3 answers completed
+        </p>
+      
+        <div class="progress-track">
+          <div
+            class="progress-fill"
+            [style.width.%]="(levelProgress / 3) * 100">
+          </div>
+        </div>
+      </div>
+      
+      <p *ngIf="loading">Loading word dictionary...</p>
+  
+      <ng-container *ngIf="!gameOver">
+        <div class="letter-grid">
+          <span
+            class="letter"
+            *ngFor="let letter of scrambledWord.split('')">
+            {{ letter }}
+          </span>
+        </div>
+  
+        
+        
+        <div class="hint-section">
+            <p class="hint">💡 {{ hint }}</p>
+        
+            <button
+            type="button"
+            class="hint-btn"
+            (click)="showHint()"
+            [disabled]="wordSolved || gameOver || loading || hintLevel >= maxHints">
+            💡 Get Hint (-{{ hintLevel + 1 }} pts)
+            </button>
+        
+            <p>
+            ⭐ Points available:
+            <strong>{{ possiblePoints }}</strong>
+            </p>
+        
+            <small *ngIf="hintPenalty > 0">
+            Hint penalty: -{{ hintPenalty }} points
+            </small>
+        </div>  
+  
+        <form (ngSubmit)="checkAnswer()">
+          
+            <input
+            type="text"
+            name="answer"
+            [ngModel]="answer"
+            (ngModelChange)="onAnswerInput($event)"
+            [maxlength]="scrambledWord.length"
+            [disabled]="wordSolved || gameOver"
+            placeholder="Use only the given letters"
+            autocomplete="off"
+            autocapitalize="characters"
+            spellcheck="false"
+            />
+
+  
+            <button
+            type="submit"
+            [disabled]="
+              wordSolved ||
+              gameOver ||
+              answer.length !== scrambledWord.length
+            ">
+            Check Answer
+          </button>
+        </form>
+  
+        <p class="message" aria-live="polite">{{ message }}</p>
+  
+        <div class="actions">
+          <button
+            *ngIf="wordSolved"
+            (click)="nextWord()">
+            Next Word →
+          </button>
+  
+          <button
+            *ngIf="!wordSolved"
+            (click)="skipWord()">
+            Skip Word
+          </button>
+        </div>
+      </ng-container>
+  
+      <div class="result" *ngIf="gameOver">
+        <h2>🏆 Game Complete!</h2>
+        <p>{{ message }}</p>
+        <button (click)="newGame()">Play Again</button>
+      </div>
+    </div>
+  </div>
+  

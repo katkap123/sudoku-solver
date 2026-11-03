@@ -1,3 +1,4 @@
+
 {
   "functions": [
     {
@@ -10,12 +11,6 @@
         "firebase-debug.*.log",
         "*.local"
       ],
-      "source": "functions"
-    },
-    {
-      "database": {
-        "rules": "database.rules.json"
-      },
       "source": "functions"
     }
   ],

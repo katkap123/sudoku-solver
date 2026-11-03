@@ -1,0 +1,133 @@
+
+.scramble-page {
+    min-height: 80vh;
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+    background: #f5f7fb;
+  }
+  
+  .scramble-card {
+    width: 100%;
+    max-width: 650px;
+    height: fit-content;
+    padding: 28px;
+    border-radius: 16px;
+    background: white;
+    text-align: center;
+    box-shadow: 0 6px 24px rgba(0, 0, 0, 0.08);
+  }
+  
+  h1 { margin: 0 0 12px; }
+  
+  .controls, .stats, .actions {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin: 22px 0;
+  }
+  
+  .stats {
+    justify-content: space-around;
+    font-weight: 600;
+  }
+  
+  .letter-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 7px;
+    margin: 28px 0;
+  }
+  
+  .letter {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 43px;
+    height: 49px;
+    border: 2px solid #2563eb;
+    border-radius: 8px;
+    background: #eff6ff;
+    color: #1d4ed8;
+    font-size: 23px;
+    font-weight: bold;
+  }
+  
+  .hint { color: #475569; }
+  
+  input, select {
+    padding: 11px;
+    border: 1px solid #cbd5e1;
+    border-radius: 7px;
+    max-width: 100%;
+  }
+  
+  form {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+  }
+  
+  button {
+    padding: 11px 16px;
+    background: #2563eb;
+    color: white;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+  }
+  
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  .message {
+    min-height: 24px;
+    font-weight: 600;
+  }
+  
+  .result {
+    padding: 24px 0;
+  }
+  
+  @media (max-width: 480px) {
+    .scramble-card { padding: 16px; }
+    .letter { width: 34px; height: 40px; font-size: 18px; }
+  }
+
+.level-info {
+  margin: 18px 0;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.progress-track {
+  width: 100%;
+  height: 10px;
+  background: #e2e8f0;
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.progress-fill {
+  height: 100%;
+  background: #22c55e;
+  border-radius: 10px;
+  transition: width 0.3s ease;
+}
+  
+.hint-section {
+    margin: 18px 0;
+    text-align: center;
+  }
+  
+  .hint-btn {
+    background: #f59e0b;
+    color: #111827;
+    margin-top: 8px;
+  }

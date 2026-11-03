@@ -255,112 +255,140 @@ exports.createWordRoom = onCall(
 );
 
 // 2. JOIN ROOM
+
 exports.joinWordRoom = onCall(
-  { region: REGION, cors: true },
-  async request => {
-    const uid = requireAuth(request);
-    const code = validateCode(request.data?.code);
-    const name = validateName(request.data?.name);
-
-    let reason = 'Cannot join room.';
-
-    const result = await roomRef(code).transaction(
-      room => {
-        if (!room) {
-          reason = 'Room not found.';
-          return;
-        }
-
-        if (room.players?.[uid]) {
+    { region: REGION, cors: true },
+    async request => {
+      const uid = requireAuth(request);
+      const code = validateCode(request.data?.code);
+      const name = validateName(request.data?.name);
+  
+      const MAX_PLAYERS = 10;
+  
+      let reason = 'Cannot join room.';
+  
+      const result = await roomRef(code).transaction(
+        room => {
+          if (!room) {
+            reason = 'Room not found.';
+            return;
+          }
+  
+          // Allow existing players to rejoin.
+          if (room.players?.[uid]) {
+            return room;
+          }
+  
+          // Players can join only before the game starts.
+          if (room.status !== 'waiting') {
+            reason = 'Game already started.';
+            return;
+          }
+  
+          const playerCount = Object.keys(
+            room.players || {}
+          ).length;
+  
+          // Maximum 10 players per room.
+          if (playerCount >= MAX_PLAYERS) {
+            reason = 'Room is full. Maximum 10 players allowed.';
+            return;
+          }
+  
+          // Add new player.
+          room.players = room.players || {};
+  
+          room.players[uid] = {
+            name,
+            score: 0,
+            foundWords: {}
+          };
+  
           return room;
-        }
-
-        if (room.status !== 'waiting') {
-          reason = 'Game already started.';
-          return;
-        }
-
-        if (Object.keys(room.players || {}).length >= 2) {
-          reason = 'Room is full.';
-          return;
-        }
-
-        room.players[uid] = {
-          name,
-          score: 0,
-          foundWords: {}
-        };
-
-        return room;
-      },
-      undefined,
-      false
-    );
-
-    if (!result.committed) {
-      throw new HttpsError(
-        'failed-precondition',
-        reason
+        },
+        undefined,
+        false
       );
+  
+      if (!result.committed) {
+        throw new HttpsError(
+          'failed-precondition',
+          reason
+        );
+      }
+  
+      return { code };
     }
-
-    return { code };
-  }
-);
+  );
+  
 
 // 3. START GAME
+
 exports.startWordGame = onCall(
-  { region: REGION, cors: true },
-  async request => {
-    const uid = requireAuth(request);
-    const code = validateCode(request.data?.code);
-
-    let reason = 'Cannot start game.';
-
-    const result = await roomRef(code).transaction(
-      room => {
-        if (!room) {
-          reason = 'Room not found.';
-          return;
-        }
-
-        if (room.hostId !== uid) {
-          reason = 'Only the host can start.';
-          return;
-        }
-
-        if (room.status !== 'waiting') {
-          reason = 'Game already started.';
-          return;
-        }
-
-        if (Object.keys(room.players || {}).length !== 2) {
-          reason = 'Two players are required.';
-          return;
-        }
-
-        const now = Date.now();
-
-        room.status = 'playing';
-        room.startedAt = now;
-        room.endsAt = now + GAME_DURATION;
-
-        return room;
-      },
-      undefined,
-      false
-    );
-
-    if (!result.committed) {
-      throw new HttpsError(
-        'failed-precondition',
-        reason
+    { region: REGION, cors: true },
+    async request => {
+      const uid = requireAuth(request);
+      const code = validateCode(request.data?.code);
+  
+      const MIN_PLAYERS = 2;
+      const MAX_PLAYERS = 10;
+  
+      let reason = 'Cannot start game.';
+  
+      const result = await roomRef(code).transaction(
+        room => {
+          if (!room) {
+            reason = 'Room not found.';
+            return;
+          }
+  
+          // Only the room creator can start the game.
+          if (room.hostId !== uid) {
+            reason = 'Only the host can start.';
+            return;
+          }
+  
+          // Prevent starting an already running game.
+          if (room.status !== 'waiting') {
+            reason = 'Game already started.';
+            return;
+          }
+  
+          const playerCount = Object.keys(
+            room.players || {}
+          ).length;
+  
+          // Allow between 2 and 10 players.
+          if (
+            playerCount < MIN_PLAYERS ||
+            playerCount > MAX_PLAYERS
+          ) {
+            reason = 'Game requires between 2 and 10 players.';
+            return;
+          }
+  
+          const now = Date.now();
+  
+          room.status = 'playing';
+          room.startedAt = now;
+          room.endsAt = now + GAME_DURATION;
+  
+          return room;
+        },
+        undefined,
+        false
       );
+  
+      if (!result.committed) {
+        throw new HttpsError(
+          'failed-precondition',
+          reason
+        );
+      }
+  
+      return { started: true };
     }
-
-    return { started: true };
-  }
-);
+  );  
 
 // Convert selected cell positions into a word.
 // Only straight horizontal, vertical, and diagonal
