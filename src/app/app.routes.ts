@@ -17,10 +17,11 @@ export const routes: Routes = [
   {
     path: 'word-puzzle',
     component: WordPuzzleComponent,
-    title: 'Free Word Search Puzzle Online | Play Sudoku Online Free'
+    title: 'Play Word Search Online – Free Puzzles'
   },
   {
     path: 'word-scramble',
+    title:'Play Word Scramble Online Free | Word Puzzle Game',
     loadComponent: () =>
       import('./pages/word-scramble/word-scramble.component')
         .then(m => m.WordScrambleComponent)
@@ -33,12 +34,14 @@ export const routes: Routes = [
   },
   {
     path: 'word-puzzle/solo',
+    title:'Play Word Search Online Free | Fun Word Puzzle Game',
     loadComponent: () =>
       import('./pages/word-puzzle-solo/word-puzzle-solo.component')
         .then(m => m.WordPuzzleSoloComponent)
   },
   {
     path: 'word-puzzle/multiplayer',
+    title:'Play Word Search Multiplayer Online Free | Fun Word Puzzle Game',
     loadComponent: () =>
       import('./pages/word-puzzle-multiplayer/word-puzzle-multiplayer.component')
         .then(m => m.WordPuzzleMultiplayerComponent)
@@ -51,12 +54,12 @@ export const routes: Routes = [
   {
     path: '2048',
     component: Game2048Component,
-    title: 'Play 2048 Online Free | Number Merge Puzzle'
+    title: 'Play 2048 Online Free – Number Puzzle'
   },
   {
     path: 'sudoku',
     component: SudokuComponent,
-    title: 'Play Free Sudoku Online | Play Sudoku Online Free'
+    title: 'Play Sudoku Online Free – Daily Puzzles'
   },
   {
     path: 'memory-game',
