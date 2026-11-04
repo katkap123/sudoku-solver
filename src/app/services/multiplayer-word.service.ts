@@ -299,53 +299,34 @@ export class MultiplayerWordService {
     return cleaned;
   }
 
-  async createRoom(
+  
+async createRoom(
     name: string,
     difficulty: Difficulty
   ): Promise<string> {
-    const user = await this.ensureSignedIn();
+    await this.ensureSignedIn();
+  
     const playerName = this.validateName(name);
-
-    if (!Object.prototype.hasOwnProperty.call(this.sizes, difficulty)) {
+  
+    if (!Object.prototype.hasOwnProperty.call(
+      this.sizes,
+      difficulty
+    )) {
       throw new Error('Invalid difficulty.');
     }
-
-    await this.loadDictionary();
-    const grid = this.generateGrid(difficulty);
-
-    for (let attempt = 0; attempt < 15; attempt++) {
-      const code = this.makeCode();
-      const createdAt = this.now();
-
-      const room: MultiplayerRoom = {
-        code,
-        hostId: user.uid,
-        status: 'waiting',
-        difficulty,
-        grid,
-        players: {
-          [user.uid]: {
-            name: playerName,
-            score: 0,
-            foundWords: {}
-          }
-        },
-        startedAt: null,
-        endsAt: null,
-        createdAt
-      };
-
-      const result = await runTransaction(
-        ref(this.db, `wordRooms/${code}`),
-        current => current === null ? room : undefined,
-        { applyLocally: false }
-      );
-
-      if (result.committed) return code;
-    }
-
-    throw new Error('Unable to create a room. Try again.');
-  }
+  
+    const createWordRoom = httpsCallable<
+      { name: string; difficulty: Difficulty },
+      { code: string }
+    >(this.functions, 'createWordRoom');
+  
+    const result = await createWordRoom({
+      name: playerName,
+      difficulty
+    });
+  
+    return result.data.code;
+  }  
 
 async joinRoom(
     code: string,

@@ -532,7 +532,7 @@ import {
 
     async leaveRoom(): Promise<void> {
         if (!this.roomCode || this.loading) return;
-    
+        this.errorMessage='';
         this.loading = true;
         this.errorMessage = '';
     

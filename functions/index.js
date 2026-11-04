@@ -67,6 +67,7 @@ function requireAuth(request) {
 }
 
 function validateCode(code) {
+  
   const value = String(code || '').trim().toUpperCase();
 
   if (!/^[A-Z0-9]{6}$/.test(value)) {
@@ -586,51 +587,63 @@ exports.finishWordGame = onCall(
 );
 
 exports.leaveWordRoom = onCall(
-    { region: REGION, cors: true },
-    async request => {
-      const uid = requireAuth(request);
-      const code = validateCode(request.data?.code);
-  
-      let reason = 'Cannot leave room.';
-  
-      const result = await roomRef(code).transaction(
-        room => {
-          if (!room) {
-            reason = 'Room not found.';
-            return;
-          }
-  
-          if (!room.players?.[uid]) {
-            reason = 'You are not a member of this room.';
-            return;
-          }
-  
-          // Remove the leaving player.
-          delete room.players[uid];
-  
-          const remainingIds = Object.keys(room.players);
-  
-          // Delete the room if everyone has left.
-          if (remainingIds.length === 0) {
-            return null;
-          }
-  
-          // Transfer host ownership if the host leaves.
-          if (room.hostId === uid) {
-            room.hostId = remainingIds[0];
-          }
-  
-          return room;
-        },
-        undefined,
-        false
+  { region: REGION, cors: true },
+  async request => {
+    const uid = requireAuth(request);
+    const code = validateCode(request.data?.code);
+
+    const reference = roomRef(code);
+    const snapshot = await reference.get();
+
+    if (!snapshot.exists()) {
+      throw new HttpsError(
+        'not-found',
+        'Room not found.'
       );
-  
-      if (!result.committed) {
-        throw new HttpsError('failed-precondition', reason);
-      }
-  
+    }
+
+    const room = snapshot.val();
+
+    if (!room.players?.[uid]) {
+      throw new HttpsError(
+        'failed-precondition',
+        'You are not a member of this room.'
+      );
+    }
+
+    const remainingIds = Object.keys(
+      room.players
+    ).filter(id => id !== uid);
+
+    // Last player leaves: delete entire room.
+    if (remainingIds.length === 0) {
+      await reference.remove();
+
+      console.log('Room deleted:', code);
+
       return { left: true };
     }
-  );
+
+    const updates = {
+      [`players/${uid}`]: null
+    };
+
+    // Transfer host if the current host leaves.
+    if (room.hostId === uid) {
+      updates.hostId = remainingIds[0];
+    }
+
+    await reference.update(updates);
+
+    console.log('Player left room:', {
+      code,
+      uid,
+      remainingPlayers: remainingIds.length
+    });
+
+    return { left: true };
+  }
+);
+
+
   
