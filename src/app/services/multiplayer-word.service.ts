@@ -300,7 +300,8 @@ export class MultiplayerWordService {
   }
 
   
-async createRoom(
+
+  async createRoom(
     name: string,
     difficulty: Difficulty
   ): Promise<string> {
@@ -308,17 +309,13 @@ async createRoom(
   
     const playerName = this.validateName(name);
   
-    if (!Object.prototype.hasOwnProperty.call(
-      this.sizes,
-      difficulty
-    )) {
-      throw new Error('Invalid difficulty.');
-    }
-  
     const createWordRoom = httpsCallable<
       { name: string; difficulty: Difficulty },
       { code: string }
-    >(this.functions, 'createWordRoom');
+    >(
+      this.functions,
+      'createWordRoom'
+    );
   
     const result = await createWordRoom({
       name: playerName,

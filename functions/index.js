@@ -257,139 +257,164 @@ exports.createWordRoom = onCall(
 
 // 2. JOIN ROOM
 
+
+
 exports.joinWordRoom = onCall(
-    { region: REGION, cors: true },
-    async request => {
-      const uid = requireAuth(request);
-      const code = validateCode(request.data?.code);
-      const name = validateName(request.data?.name);
-  
-      const MAX_PLAYERS = 10;
-  
-      let reason = 'Cannot join room.';
-  
-      const result = await roomRef(code).transaction(
-        room => {
-          if (!room) {
-            reason = 'Room not found.';
-            return;
-          }
-  
-          // Allow existing players to rejoin.
-          if (room.players?.[uid]) {
-            return room;
-          }
-  
-          // Players can join only before the game starts.
-          if (room.status !== 'waiting') {
-            reason = 'Game already started.';
-            return;
-          }
-  
-          const playerCount = Object.keys(
-            room.players || {}
-          ).length;
-  
-          // Maximum 10 players per room.
-          if (playerCount >= MAX_PLAYERS) {
-            reason = 'Room is full. Maximum 10 players allowed.';
-            return;
-          }
-  
-          // Add new player.
-          room.players = room.players || {};
-  
-          room.players[uid] = {
-            name,
-            score: 0,
-            foundWords: {}
-          };
-  
-          return room;
-        },
-        undefined,
-        false
+  { region: REGION, cors: true },
+  async request => {
+    const uid = requireAuth(request);
+    const code = validateCode(request.data?.code);
+    const name = validateName(request.data?.name);
+
+    const reference = roomRef(code);
+    const MAX_PLAYERS = 10;
+
+    const snapshot = await reference.get();
+
+    if (!snapshot.exists()) {
+      throw new HttpsError(
+        'not-found',
+        'Room not found.'
       );
-  
-      if (!result.committed) {
-        throw new HttpsError(
-          'failed-precondition',
-          reason
-        );
-      }
-  
+    }
+
+    const room = snapshot.val();
+
+    if (room.players?.[uid]) {
       return { code };
     }
-  );
+
+    if (room.status !== 'waiting') {
+      throw new HttpsError(
+        'failed-precondition',
+        'Game already started.'
+      );
+    }
+
+    const playersRef = reference.child('players');
+
+    let reason = 'Unable to join room.';
+
+    const result = await playersRef.transaction(
+      players => {
+        // Firebase may initially return null.
+        // Initialize only when the parent room
+        // has already been verified.
+        players = players || {};
+
+        if (players[uid]) {
+          return players;
+        }
+
+        if (Object.keys(players).length >= MAX_PLAYERS) {
+          reason = 'Room is full.';
+          return;
+        }
+
+        players[uid] = {
+          name,
+          score: 0,
+          foundWords: {}
+        };
+
+        return players;
+      },
+      undefined,
+      false
+    );
+
+    console.log('Join transaction result:', {
+      code,
+      uid,
+      committed: result.committed,
+      playerCount: Object.keys(
+        result.snapshot.val() || {}
+      ).length
+    });
+
+    if (!result.committed) {
+      throw new HttpsError(
+        'failed-precondition',
+        reason
+      );
+    }
+
+    return { code };
+  }
+);
+
   
 
 // 3. START GAME
-
 exports.startWordGame = onCall(
-    { region: REGION, cors: true },
-    async request => {
-      const uid = requireAuth(request);
-      const code = validateCode(request.data?.code);
-  
-      const MIN_PLAYERS = 2;
-      const MAX_PLAYERS = 10;
-  
-      let reason = 'Cannot start game.';
-  
-      const result = await roomRef(code).transaction(
-        room => {
-          if (!room) {
-            reason = 'Room not found.';
-            return;
-          }
-  
-          // Only the room creator can start the game.
-          if (room.hostId !== uid) {
-            reason = 'Only the host can start.';
-            return;
-          }
-  
-          // Prevent starting an already running game.
-          if (room.status !== 'waiting') {
-            reason = 'Game already started.';
-            return;
-          }
-  
-          const playerCount = Object.keys(
-            room.players || {}
-          ).length;
-  
-          // Allow between 2 and 10 players.
-          if (
-            playerCount < MIN_PLAYERS ||
-            playerCount > MAX_PLAYERS
-          ) {
-            reason = 'Game requires between 2 and 10 players.';
-            return;
-          }
-  
-          const now = Date.now();
-  
-          room.status = 'playing';
-          room.startedAt = now;
-          room.endsAt = now + GAME_DURATION;
-  
-          return room;
-        },
-        undefined,
-        false
+  { region: REGION, cors: true },
+  async request => {
+    const uid = requireAuth(request);
+    const code = validateCode(request.data?.code);
+
+    const reference = roomRef(code);
+    const MIN_PLAYERS = 2;
+    const MAX_PLAYERS = 10;
+
+    // Verify the room exists before transaction.
+    const snapshot = await reference.get();
+
+    if (!snapshot.exists()) {
+      throw new HttpsError(
+        'not-found',
+        'Room not found.'
       );
-  
-      if (!result.committed) {
-        throw new HttpsError(
-          'failed-precondition',
-          reason
-        );
-      }
-  
-      return { started: true };
     }
-  );  
+
+    const room = snapshot.val();
+
+    if (room.hostId !== uid) {
+      throw new HttpsError(
+        'permission-denied',
+        'Only the host can start the game.'
+      );
+    }
+
+    if (room.status !== 'waiting') {
+      throw new HttpsError(
+        'failed-precondition',
+        'Game already started.'
+      );
+    }
+
+    const playerCount = Object.keys(
+      room.players || {}
+    ).length;
+
+    if (
+      playerCount < MIN_PLAYERS ||
+      playerCount > MAX_PLAYERS
+    ) {
+      throw new HttpsError(
+        'failed-precondition',
+        'Game requires between 2 and 10 players.'
+      );
+    }
+
+    // Update only the game state.
+    const now = Date.now();
+
+    await reference.update({
+      status: 'playing',
+      startedAt: now,
+      endsAt: now + GAME_DURATION
+    });
+
+    console.log('Game started:', {
+      code,
+      hostId: uid,
+      playerCount,
+      startedAt: now
+    });
+
+    return { started: true };
+  }
+);
 
 // Convert selected cell positions into a word.
 // Only straight horizontal, vertical, and diagonal
