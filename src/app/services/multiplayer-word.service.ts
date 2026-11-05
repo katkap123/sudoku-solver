@@ -417,7 +417,6 @@ async startGame(code: string): Promise<void> {
     ).join('');
   }
 
-  
   async submitWord(
     code: string,
     cells: number[]
@@ -429,10 +428,7 @@ async startGame(code: string): Promise<void> {
     const submitWordFunction = httpsCallable<
       { code: string; cells: number[] },
       SubmitWordResult
-    >(
-      this.functions,
-      'submitWord'
-    );
+    >(this.functions, 'submitWord');
 
     const result = await submitWordFunction({
       code: roomCode,
@@ -441,8 +437,8 @@ async startGame(code: string): Promise<void> {
 
     return result.data;
   }
-
   
+   
   async finishGame(code: string): Promise<void> {
     await this.ensureSignedIn();
 
@@ -451,10 +447,7 @@ async startGame(code: string): Promise<void> {
     const finishWordGame = httpsCallable<
       { code: string },
       { finished: boolean }
-    >(
-      this.functions,
-      'finishWordGame'
-    );
+    >(this.functions, 'finishWordGame');
 
     const result = await finishWordGame({
       code: roomCode
