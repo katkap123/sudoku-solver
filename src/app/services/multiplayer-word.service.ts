@@ -299,7 +299,6 @@ export class MultiplayerWordService {
     return cleaned;
   }
 
-  
 
   async createRoom(
     name: string,
@@ -418,100 +417,51 @@ async startGame(code: string): Promise<void> {
     ).join('');
   }
 
+  
   async submitWord(
     code: string,
     cells: number[]
   ): Promise<SubmitWordResult> {
-    const user = await this.ensureSignedIn();
+    await this.ensureSignedIn();
+
     const roomCode = this.validateCode(code);
 
-    await this.loadDictionary();
-
-    const target = ref(this.db, `wordRooms/${roomCode}`);
-    let acceptedWord = '';
-    await get(target);
-    const result = await runTransaction(
-      target,
-      (room: MultiplayerRoom | null) => {
-        acceptedWord = '';
-
-        if (!room || room.status !== 'playing') {
-          return;
-        }
-
-        if (!room.endsAt || this.now() >= room.endsAt) {
-          return;
-        }
-
-        const player = room.players?.[user.uid];
-        if (!player) return;
-
-        const word = this.wordFromCells(room.grid, cells);
-
-        if (!word || !this.dictionary?.has(word)) {
-          return;
-        }
-
-        if (player.foundWords?.[word]) {
-          return;
-        }
-
-        if (!player.foundWords) {
-          player.foundWords = {};
-        }
-
-        player.foundWords[word] = true;
-        player.score = (player.score || 0) + word.length * 10;
-        acceptedWord = word;
-
-        return room;
-      },
-      { applyLocally: false }
+    const submitWordFunction = httpsCallable<
+      { code: string; cells: number[] },
+      SubmitWordResult
+    >(
+      this.functions,
+      'submitWord'
     );
 
-    if (!result.committed || !acceptedWord) {
-      return {
-        accepted: false,
-        word: '',
-        points: 0
-      };
-    }
+    const result = await submitWordFunction({
+      code: roomCode,
+      cells
+    });
 
-    return {
-      accepted: true,
-      word: acceptedWord,
-      points: acceptedWord.length * 10
-    };
+    return result.data;
   }
 
+  
   async finishGame(code: string): Promise<void> {
-    const user = await this.ensureSignedIn();
+    await this.ensureSignedIn();
+
     const roomCode = this.validateCode(code);
-    const target = ref(this.db, `wordRooms/${roomCode}`);
-    await get(target);
-    const result = await runTransaction(
-      ref(this.db, `wordRooms/${roomCode}`),
-      (room: MultiplayerRoom | null) => {
-        if (!room || !room.players?.[user.uid]) return;
 
-        if (room.status === 'finished') return room;
-
-        if (
-          room.status !== 'playing' ||
-          !room.endsAt ||
-          this.now() < room.endsAt
-        ) {
-          return;
-        }
-
-        room.status = 'finished';
-        return room;
-      },
-      { applyLocally: false }
+    const finishWordGame = httpsCallable<
+      { code: string },
+      { finished: boolean }
+    >(
+      this.functions,
+      'finishWordGame'
     );
 
-    if (!result.committed) {
-      throw new Error('The game has not ended yet.');
+    const result = await finishWordGame({
+      code: roomCode
+    });
+
+    if (!result.data.finished) {
+      throw new Error('Unable to finish the game.');
     }
   }
 
