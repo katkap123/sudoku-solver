@@ -256,48 +256,63 @@ import {
       }
     }
   
-    private connectToRoom(code: string): void {
-      this.unsubscribeRoom?.();
-      this.stopTimer();
-  
-      this.roomCode = code;
-      this.room = null;
-      this.foundCells.clear();
-      this.allPossibleWords = [];
-      this.showAnswers = false;
-      this.selectedAnswer = null;
-      this.finishRequested = false;
-      this.errorMessage = '';
-  
-      sessionStorage.setItem(this.sessionKey, code);
-  
-      this.unsubscribeRoom = this.multiplayer.subscribeToRoom(
+    
+  private connectToRoom(code: string): void {
+    this.unsubscribeRoom?.();
+    this.unsubscribeRoom = null;
+
+    this.stopTimer();
+
+    this.roomCode = code;
+    this.room = null;
+    this.foundCells.clear();
+    this.allPossibleWords = [];
+    this.showAnswers = false;
+    this.selectedAnswer = null;
+    this.finishRequested = false;
+    this.errorMessage = '';
+
+    sessionStorage.setItem(this.sessionKey, code);
+
+    this.unsubscribeRoom =
+      this.multiplayer.subscribeToRoom(
         code,
         room => {
           if (!room) {
-            this.leaveRoom();
+            this.clearRoomLocally();
             this.errorMessage = 'Room not found.';
             return;
           }
-  
+
           if (!room.players?.[this.myId]) {
-            this.leaveRoom();
-            this.errorMessage = 'You are not a member of this room.';
+            this.clearRoomLocally();
+            this.errorMessage =
+              'You are not a member of this room.';
             return;
           }
-  
+
           this.room = room;
           this.updateTimer();
           this.restoreFoundCells();
           this.loadAnswersIfFinished();
         },
         error => {
+          console.error(
+            'Room subscription failed:',
+            error
+          );
+
+          this.clearRoomLocally();
+
           this.errorMessage = this.getError(error);
         }
       );
-  
-      this.timer = setInterval(() => this.updateTimer(), 250);
-    }
+
+    this.timer = setInterval(
+      () => this.updateTimer(),
+      250
+    );
+  }
   
     private restoreFoundCells(): void {
       if (!this.room || !this.dictionaryReady) return;
@@ -529,24 +544,36 @@ import {
         this.errorMessage = 'Could not copy the room code.';
       }
     }
+    
+  async leaveRoom(): Promise<void> {
+    if (!this.roomCode || this.loading) return;
 
-    async leaveRoom(): Promise<void> {
-        if (!this.roomCode || this.loading) return;
-        this.errorMessage='';
-        this.loading = true;
-        this.errorMessage = '';
-    
-        try {
-        await this.multiplayer.leaveRoom(this.roomCode);
-    
-        this.clearRoomLocally();
-        this.successMessage = 'You left the room.';
-        } catch (error) {
-        this.errorMessage = this.getError(error);
-        } finally {
-        this.loading = false;
-        }
-    }  
+    const code = this.roomCode;
+
+    this.loading = true;
+    this.errorMessage = '';
+
+    // Stop listening before Firebase removes our membership.
+    this.unsubscribeRoom?.();
+    this.unsubscribeRoom = null;
+
+    this.stopTimer();
+
+    try {
+      await this.multiplayer.leaveRoom(code);
+
+      this.clearRoomLocally();
+      this.successMessage = 'You left the room.';
+    } catch (error) {
+      this.errorMessage = this.getError(error);
+
+      // Restore the listener if leaving failed.
+      // The player may still belong to the room.
+      this.connectToRoom(code);
+    } finally {
+      this.loading = false;
+    }
+  }
     
     clearRoomLocally(): void {
       this.unsubscribeRoom?.();
