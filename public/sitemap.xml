@@ -7,13 +7,7 @@
     <loc>https://playsudokuonlinefree.com/sudoku</loc>
   </url>
   <url>
-    <loc>https://playsudokuonlinefree.com/sudoku-solver</loc>
-  </url>
-  <url>
-    <loc>https://playsudokuonlinefree.com/word-search</loc>
-  </url>
-  <url>
-    <loc>https://playsudokuonlinefree.com/word-search/multiplayer</loc>
+    <loc>https://playsudokuonlinefree.com/word-puzzle/multiplayer</loc>
   </url>
   <url>
     <loc>https://playsudokuonlinefree.com/word-scramble</loc>
@@ -26,5 +20,11 @@
   </url>
   <url>
     <loc>https://playsudokuonlinefree.com/number-puzzle</loc>
+  </url>
+  <url>
+    <loc>https://playsudokuonlinefree.com/word-puzzle</loc>
+  </url>
+  <url>
+    <loc>https://playsudokuonlinefree.com/word-puzzle/solo</loc>
   </url>
 </urlset>
