@@ -1,0 +1,298 @@
+
+<section class="card-game">
+
+  <h1>13 Rounds — Multiplayer Cards</h1>
+
+  <p class="subtitle">
+    Play a 13-round trick-taking card game with four players.
+    Predict your tricks, follow suit, and score points!
+  </p>
+
+  <p class="error" *ngIf="error" role="alert">
+    {{ error }}
+  </p>
+
+  <!-- CREATE / JOIN ROOM -->
+  <ng-container *ngIf="!room; else lobby">
+
+    <div class="game-panel">
+      <h2>Create or Join a Room</h2>
+
+      <label for="playerName">Your name</label>
+
+      <input
+        id="playerName"
+        [(ngModel)]="name"
+        maxlength="24"
+        placeholder="Enter your name"
+        [disabled]="busy"
+      />
+
+      <div class="actions">
+        <button
+          type="button"
+          (click)="create()"
+          [disabled]="busy || !name.trim()">
+          {{ busy ? 'Please wait...' : 'Create Room' }}
+        </button>
+      </div>
+
+      <div class="separator">
+        <span>OR</span>
+      </div>
+
+      <label for="roomCode">Join an existing room</label>
+
+      <input
+        id="roomCode"
+        [(ngModel)]="joinCode"
+        maxlength="6"
+        placeholder="Enter 6-character code"
+        [disabled]="busy"
+      />
+
+      <div class="actions">
+        <button
+          type="button"
+          (click)="join()"
+          [disabled]="busy || !name.trim() || joinCode.trim().length !== 6">
+          Join Room
+        </button>
+      </div>
+
+    </div>
+
+  </ng-container>
+
+  <!-- MULTIPLAYER LOBBY -->
+  <ng-template #lobby>
+
+    <div class="game-panel">
+
+      <h2>Multiplayer Lobby</h2>
+
+      <div class="room-info">
+
+        <p>Room Code</p>
+
+        <div class="room-code">
+          <strong>{{ code }}</strong>
+
+          <button
+            type="button"
+            class="secondary"
+            (click)="copyRoomCode()">
+            Copy Code
+          </button>
+        </div>
+
+        <p>
+          Status: <strong>{{ room?.status }}</strong>
+        </p>
+
+        <p>
+          Players:
+          <strong>{{ playerCount }}/4</strong>
+        </p>
+
+      </div>
+
+      <h3>Players</h3>
+
+      <ul class="player-list">
+
+        <li *ngFor="let entry of playerEntries">
+
+          <span>{{ entry[1].name }}</span>
+
+          <span *ngIf="entry[0] === room?.hostId">
+            (Host)
+          </span>
+
+          <span *ngIf="entry[0] === myId">
+            (You)
+          </span>
+
+        </li>
+
+      </ul>
+
+      <!-- WAITING STATE -->
+      <ng-container *ngIf="room?.status === 'waiting'">
+
+        <p class="waiting-message" *ngIf="playerCount < 4">
+          Waiting for {{ 4 - playerCount }}
+          more player(s) to join...
+        </p>
+
+        <p *ngIf="playerCount === 4">
+          All four players have joined!
+        </p>
+
+        <div class="actions">
+
+          <button
+            *ngIf="isHost"
+            type="button"
+            (click)="start()"
+            [disabled]="!canStart">
+            Start Game
+          </button>
+
+          <button
+            type="button"
+            class="secondary"
+            (click)="leave()"
+            [disabled]="busy">
+            Leave Room
+          </button>
+
+        </div>
+
+      </ng-container>
+
+      <!-- READY STATE -->
+      <div *ngIf="isReady" class="ready-panel">
+
+        <h3>Game Ready!</h3>
+
+        <p>
+          The host started the game.
+          Player order has been randomized.
+        </p>
+
+        <h4>Initial Player Order</h4>
+
+        <ol class="player-order">
+
+          <li *ngFor="let player of orderedPlayers">
+            {{ player }}
+          </li>
+
+        </ol>
+
+        <p>
+          Lobby setup complete.
+          Card dealing, predictions, and gameplay
+          will be implemented in Milestone 3.
+        </p>
+
+      </div>
+
+
+      <!-- READY: HOST DEALS ROUND 1 -->
+      <div *ngIf="isReady" class="deal-panel">
+        <button
+          *ngIf="isHost"
+          type="button"
+          (click)="deal()"
+          [disabled]="busy">
+          Deal Round 1
+        </button>
+
+        <p *ngIf="!isHost">
+          Waiting for the host to deal the cards...
+        </p>
+      </div>
+
+      <!-- DEAL IN PROGRESS -->
+      <div *ngIf="room?.status === 'dealing'">
+        <p>Shuffling and dealing cards...</p>
+      </div>
+
+      <!-- PREDICTION PHASE -->
+      <div
+        *ngIf="room?.status === 'playing'"
+        class="round-panel">
+
+        <h3>Round {{ room?.roundNumber }} of 13</h3>
+
+        <p>
+          Current phase:
+          <strong>{{ room?.phase }}</strong>
+        </p>
+
+        <h4>Your Cards</h4>
+
+        <div class="my-cards">
+          <div
+            *ngFor="let card of hand?.cards"
+            class="playing-card"
+            [class.red-card]="isRedCard(card)">
+            {{ cardLabel(card) }}
+          </div>
+        </div>
+
+        <p *ngIf="!hand">
+          Loading your private cards...
+        </p>
+
+        <h4>Predictions</h4>
+
+        <ul>
+          <li *ngFor="let entry of playerEntries">
+            {{ entry[1].name }}:
+            <strong>
+              {{ room?.predictions?.[entry[0]] ?? 'Waiting' }}
+            </strong>
+          </li>
+        </ul>
+
+        <div *ngIf="isPredicting">
+
+          <p>
+            Current turn:
+            <strong>{{ currentPlayerName }}</strong>
+          </p>
+
+          <div *ngIf="isMyTurn">
+
+            <label for="prediction">
+              How many tricks will you win?
+            </label>
+
+            <select
+              id="prediction"
+              [(ngModel)]="selectedPrediction"
+              [disabled]="busy">
+
+              <option
+                *ngFor="let value of availablePredictions"
+                [ngValue]="value">
+                {{ value }}
+              </option>
+
+            </select>
+
+            <button
+              type="button"
+              (click)="predict()"
+              [disabled]="busy || !hand ||
+                !availablePredictions.includes(selectedPrediction)">
+              Submit Prediction
+            </button>
+
+          </div>
+
+          <p *ngIf="!isMyTurn">
+            Waiting for the current player to predict...
+          </p>
+
+        </div>
+
+        <div *ngIf="room?.phase === 'playing'">
+          <h4>All Predictions Submitted!</h4>
+          <p>
+            Round {{ room?.roundNumber }} is ready
+            for card play in Milestone 4.
+          </p>
+        </div>
+
+      </div>
+
+
+    </div>
+
+  </ng-template>
+
+</section>

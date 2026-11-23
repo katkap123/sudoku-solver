@@ -1,0 +1,206 @@
+.card-game { max-width: 680px; margin: 2rem auto; padding: 1.5rem; border: 1px solid #d1d5db; border-radius: 12px; }
+label { display: block; margin: 1rem 0; }
+input { display: block; width: 100%; max-width: 320px; padding: .7rem; margin-top: .4rem; box-sizing: border-box; }
+button { padding: .7rem 1rem; margin: .4rem .5rem .4rem 0; cursor: pointer; }
+button:disabled { opacity: .55; cursor: not-allowed; }
+.error { color: #b91c1c; }
+li { margin: .5rem 0; }
+
+.card-game {
+    max-width: 720px;
+    margin: 30px auto;
+    padding: 20px;
+    font-family: Arial, sans-serif;
+  }
+  
+  h1 {
+    text-align: center;
+    margin-bottom: 10px;
+  }
+  
+  .subtitle {
+    text-align: center;
+    color: #666;
+    margin-bottom: 25px;
+  }
+  
+  .game-panel {
+    background: #fff;
+    padding: 25px;
+    border-radius: 12px;
+    border: 1px solid #ddd;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
+  }
+  
+  label {
+    display: block;
+    margin: 15px 0 8px;
+    font-weight: 600;
+  }
+  
+  input {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ccc;
+    border-radius: 6px;
+    box-sizing: border-box;
+    font-size: 16px;
+  }
+  
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    margin-top: 20px;
+  }
+  
+  button {
+    padding: 12px 20px;
+    border: none;
+    border-radius: 6px;
+    background: #2563eb;
+    color: white;
+    cursor: pointer;
+    font-size: 15px;
+    font-weight: 600;
+  }
+  
+  button:hover:not(:disabled) {
+    background: #1d4ed8;
+  }
+  
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  
+  button.secondary {
+    background: #64748b;
+  }
+  
+  button.secondary:hover:not(:disabled) {
+    background: #475569;
+  }
+  
+  .separator {
+    text-align: center;
+    margin: 25px 0;
+    color: #777;
+  }
+  
+  .room-info {
+    background: #f8fafc;
+    padding: 15px;
+    border-radius: 8px;
+    margin: 20px 0;
+  }
+  
+  .room-code {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    flex-wrap: wrap;
+  }
+  
+  .room-code strong {
+    font-size: 26px;
+    letter-spacing: 3px;
+  }
+  
+  .player-list {
+    list-style: none;
+    padding: 0;
+  }
+  
+  .player-list li {
+    padding: 12px;
+    border-bottom: 1px solid #eee;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  
+  .waiting-message {
+    margin-top: 20px;
+    color: #b45309;
+  }
+  
+  .ready-panel {
+    margin-top: 25px;
+    padding: 20px;
+    background: #f0fdf4;
+    border-radius: 8px;
+  }
+  
+  .player-order li {
+    padding: 8px 0;
+  }
+  
+  .error {
+    color: #b91c1c;
+    background: #fef2f2;
+    padding: 12px;
+    border-radius: 6px;
+    margin-bottom: 20px;
+  }
+  
+  @media (max-width: 600px) {
+    .card-game {
+      padding: 12px;
+      margin: 15px auto;
+    }
+  
+    .game-panel {
+      padding: 16px;
+    }
+  
+    .actions button {
+      width: 100%;
+    }
+  }
+  
+
+.deal-panel,
+.round-panel {
+  margin-top: 24px;
+  padding: 20px;
+  border: 1px solid #ddd;
+  border-radius: 12px;
+}
+
+.my-cards {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin: 20px 0;
+}
+
+.playing-card {
+  width: 75px;
+  height: 105px;
+  background: white;
+  border: 2px solid #334155;
+  border-radius: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 28px;
+  font-weight: bold;
+  color: #111827;
+  box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
+}
+
+.playing-card.red-card {
+  color: #dc2626;
+}
+
+.round-panel select {
+  padding: 10px;
+  font-size: 16px;
+  margin-right: 12px;
+  border-radius: 6px;
+}
+
+.round-panel button {
+  margin-top: 12px;
+}

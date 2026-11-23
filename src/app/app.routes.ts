@@ -7,6 +7,7 @@ import { MemoryGameComponent } from './pages/memory-game/memory-game.component';
 import { NumberPuzzleComponent } from './pages/number-puzzle/number-puzzle.component';
 import { Game2048Component } from './pages/game-2048/game-2048.component';
 import { WordPuzzleComponent } from './pages/word-puzzle/word-puzzle.component';
+import { CardGameComponent } from './pages/card-game/card-game.component';
 
 export const routes: Routes = [
   {
@@ -18,6 +19,11 @@ export const routes: Routes = [
     path: 'word-puzzle',
     component: WordPuzzleComponent,
     title: 'Play Word Search Online – Free Puzzles'
+  },
+  {
+    path: 'card-management',
+    component: CardGameComponent,
+    title: 'Play cards game online free | Multiplayer card game'
   },
   {
     path: 'word-scramble',

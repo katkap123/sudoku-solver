@@ -671,4 +671,15 @@ exports.leaveWordRoom = onCall(
 );
 
 
+const cardRooms = require("./card-room-functions");
+
+exports.createCardRoom = cardRooms.createCardRoom;
+exports.joinCardRoom = cardRooms.joinCardRoom;
+exports.startCardGame = cardRooms.startCardGame;
+exports.leaveCardRoom = cardRooms.leaveCardRoom;
+
+exports.dealCardRound = cardRooms.dealCardRound;
+exports.submitCardPrediction = cardRooms.submitCardPrediction;
+
+
   
