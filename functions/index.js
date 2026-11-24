@@ -685,3 +685,6 @@ exports.playCard =
 
 exports.checkCardGameState =
   require("./card-room-functions").checkCardGameState;
+
+exports.playCard =
+  require("./card-room-functions").playCard;

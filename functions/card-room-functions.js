@@ -875,6 +875,7 @@ exports.dealCardRound = onCall(
         updates[`cardRooms/${code}/updatedAt`] =
           Date.now();
 
+        updates[`cardRooms/${code}/revision`] = 0;
         // One atomic database update publishes
         // all four hands and the public phase.
         await db.ref().update(updates);
@@ -917,6 +918,51 @@ exports.dealCardRound = onCall(
     }
   }
 );
+
+
+async function syncPrivateHand(code, state, uid) {
+  const handRef = db.ref(
+    `cardPrivateHands/${code}/${uid}`
+  );
+
+  const cards = state.hands?.[uid] || [];
+  const revision = state.revision || 0;
+
+  const result = await handRef.transaction(
+    currentHand => {
+      if (currentHand) {
+        if (
+          currentHand.roundNumber > state.roundNumber
+        ) {
+          return currentHand;
+        }
+
+        if (
+          currentHand.roundNumber === state.roundNumber &&
+          (currentHand.revision || 0) > revision
+        ) {
+          return currentHand;
+        }
+      }
+
+      return {
+        roundNumber: state.roundNumber,
+        cards,
+        cardCount: cards.length,
+        revision
+      };
+    },
+    undefined,
+    false
+  );
+
+  if (!result.committed) {
+    throw new HttpsError(
+      "aborted",
+      "Unable to synchronize private hand."
+    );
+  }
+}
 
 // --------------------------------------------------
 // SUBMIT CARD PREDICTION
@@ -1096,6 +1142,273 @@ exports.submitCardPrediction = onCall(
 );
 
 
+async function syncPublicRoom(code, state) {
+  const roomRef = db.ref(`cardRooms/${code}`);
+
+  const result = await roomRef.transaction(
+    room => {
+      if (room === null) {
+        return null;
+      }
+
+      if (room.roundNumber !== state.roundNumber) {
+        return undefined;
+      }
+
+      const roomRevision = room.revision || 0;
+      const stateRevision = state.revision || 0;
+
+      // Never overwrite a newer public state.
+      if (roomRevision > stateRevision) {
+        return room;
+      }
+
+      const players = { ...room.players };
+
+      for (const playerUid of state.playerOrder) {
+        if (
+          players[playerUid] &&
+          Number.isInteger(state.totalScores?.[playerUid])
+        ) {
+          players[playerUid] = {
+            ...players[playerUid],
+            totalScore: state.totalScores[playerUid]
+          };
+        }
+      }
+
+      return {
+        ...room,
+        phase: state.phase,
+        players,
+        trickNumber: state.trickNumber || 1,
+        currentPlayerId: state.currentPlayerId || null,
+        startingPlayerId: state.startingPlayerId,
+        predictions: state.predictions || null,
+        tricksWon: state.tricksWon || null,
+        currentTrick: state.currentTrick || null,
+        lastTrick: state.lastTrick || null,
+        roundScores: state.roundScores || null,
+        revision: stateRevision,
+        updatedAt: Date.now()
+      };
+    },
+    undefined,
+    false
+  );
+
+  if (!result.committed || !result.snapshot.exists()) {
+    throw new HttpsError(
+      "aborted",
+      "Unable to synchronize public room."
+    );
+  }
+}
+
+
+exports.submitCardPrediction = onCall(
+  { region: REGION },
+  async (request) => {
+    try {
+      const uid = requireUser(request);
+      const code = validateCode(request.data?.code);
+      const prediction = request.data?.prediction;
+
+      const initialState =
+        await getAuthoritativeGameState(code);
+
+      if (!initialState.playerOrder?.includes(uid)) {
+        throw new HttpsError(
+          "permission-denied",
+          "You are not a player in this room."
+        );
+      }
+
+      validatePrediction(
+        prediction,
+        initialState.roundNumber
+      );
+
+      const expectedRound = initialState.roundNumber;
+
+      const state = await updateGameState(
+        code,
+        state => {
+          const order = state.playerOrder || [];
+
+          if (
+            order.length !== MAX_PLAYERS ||
+            !order.includes(uid)
+          ) {
+            throw new HttpsError(
+              "permission-denied",
+              "Invalid player."
+            );
+          }
+
+          if (state.roundNumber !== expectedRound) {
+            throw new HttpsError(
+              "failed-precondition",
+              "The round has changed."
+            );
+          }
+
+          validatePrediction(
+            prediction,
+            state.roundNumber
+          );
+
+          state.predictions =
+            state.predictions || {};
+
+          // Allow a retry of an already accepted prediction.
+          // This also allows synchronization to recover
+          // if the previous public-room update failed.
+          if (
+            Object.prototype.hasOwnProperty.call(
+              state.predictions,
+              uid
+            )
+          ) {
+            if (state.predictions[uid] === prediction) {
+              return state;
+            }
+
+            throw new HttpsError(
+              "failed-precondition",
+              "You have already submitted a prediction."
+            );
+          }
+
+          if (state.phase !== "predicting") {
+            throw new HttpsError(
+              "failed-precondition",
+              "Prediction phase is complete."
+            );
+          }
+
+          if (state.currentPlayerId !== uid) {
+            throw new HttpsError(
+              "failed-precondition",
+              "It is not your turn."
+            );
+          }
+
+          const index = order.indexOf(uid);
+
+          // Fourth-player prediction restriction.
+          if (index === MAX_PLAYERS - 1) {
+            let previousTotal = 0;
+
+            for (let i = 0; i < index; i++) {
+              const previous =
+                state.predictions[order[i]];
+
+              if (!Number.isInteger(previous)) {
+                throw new HttpsError(
+                  "failed-precondition",
+                  "Previous predictions are incomplete."
+                );
+              }
+
+              previousTotal += previous;
+            }
+
+            if (
+              previousTotal + prediction ===
+              state.roundNumber
+            ) {
+              throw new HttpsError(
+                "failed-precondition",
+                "Total predictions cannot equal the round number."
+              );
+            }
+          }
+
+          state.predictions[uid] = prediction;
+
+          if (index < MAX_PLAYERS - 1) {
+            state.currentPlayerId = order[index + 1];
+          } else {
+            state.phase = "playing";
+            state.currentPlayerId =
+              state.startingPlayerId;
+          }
+
+          state.revision =
+            (state.revision || 0) + 1;
+
+          state.updatedAt = Date.now();
+
+          return state;
+        }
+      );
+
+      // Publish the committed authoritative state.
+      await syncPublicRoom(code, state);
+
+      return {
+        code,
+        roundNumber: state.roundNumber,
+        prediction,
+        phase: state.phase,
+        currentPlayerId: state.currentPlayerId,
+        revision: state.revision
+      };
+
+    } catch (error) {
+      normalizeError(error);
+    }
+  }
+);
+
+async function updateGameState(code, updater) {
+  const stateRef = db.ref(`cardGameState/${code}`);
+
+  let rejection = null;
+
+  const result = await stateRef.transaction(
+    state => {
+      rejection = null;
+
+      if (state === null) {
+        return null;
+      }
+
+      try {
+        return updater(state);
+      } catch (error) {
+        rejection = error;
+        return undefined;
+      }
+    },
+    undefined,
+    false
+  );
+
+  if (!result.committed) {
+    if (rejection) {
+      throw rejection;
+    }
+
+    throw new HttpsError(
+      "aborted",
+      "Game state changed. Please retry."
+    );
+  }
+
+  const state = result.snapshot.val();
+
+  if (!state) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Game state is unavailable."
+    );
+  }
+
+  return state;
+}
+
 
 exports.playCard = onCall(
   { region: REGION },
@@ -1103,121 +1416,126 @@ exports.playCard = onCall(
     try {
       const uid = requireUser(request);
       const code = validateCode(request.data?.code);
-      const card = request.data?.card;
+      const requestedCard = request.data?.card;
 
-      if (!isValidCard(card)) {
+      if (!isValidCard(requestedCard)) {
         throw new HttpsError(
           "invalid-argument",
           "Invalid card."
         );
       }
 
-      const roomRef = db.ref(`cardRooms/${code}`);
-      const handRef = db.ref(
-        `cardPrivateHands/${code}/${uid}`
-      );
-
-      const [roomSnapshot, handSnapshot] =
-        await Promise.all([
-          roomRef.get(),
-          handRef.get()
-        ]);
-
-      const initialRoom = roomSnapshot.val();
-      const hand = handSnapshot.val();
-
-      if (!initialRoom) {
-        throw new HttpsError(
-          "not-found",
-          "Room not found."
-        );
-      }
-
-      if (!initialRoom.players?.[uid]) {
-        throw new HttpsError(
-          "permission-denied",
-          "You are not in this room."
-        );
-      }
-
-      if (
-        hand?.roundNumber !== initialRoom.roundNumber ||
-        !Array.isArray(hand.cards)
-      ) {
-        throw new HttpsError(
-          "failed-precondition",
-          "Your hand is unavailable."
-        );
-      }
+      // Only accept the expected card properties.
+      const card = {
+        suit: requestedCard.suit,
+        rank: requestedCard.rank
+      };
 
       const selectedCardId = cardId(card);
 
-      if (
-        !hand.cards.some(
-          c => isValidCard(c) && cardId(c) === selectedCardId
-        )
-      ) {
+      const initialState =
+        await getAuthoritativeGameState(code);
+
+      if (!initialState.playerOrder?.includes(uid)) {
         throw new HttpsError(
-          "failed-precondition",
-          "Card is not in your hand."
+          "permission-denied",
+          "You are not a player in this room."
         );
       }
 
-      const result = await roomRef.transaction(
-        (room) => {
-          if (room === null) {
-            room = initialRoom;
-          }
+      const expectedRound = initialState.roundNumber;
+
+      const state = await updateGameState(
+        code,
+        state => {
+          const order = state.playerOrder || [];
 
           if (
-            !room ||
-            room.status !== "playing" ||
-            room.phase !== "playing" ||
-            room.currentPlayerId !== uid ||
-            room.roundNumber !== 1
-          ) {
-            return;
-          }
-
-          const order = room.playerOrder || [];
-
-          if (
-            !Array.isArray(order) ||
             order.length !== MAX_PLAYERS ||
             !order.includes(uid)
           ) {
-            return;
+            throw new HttpsError(
+              "permission-denied",
+              "Invalid player."
+            );
           }
 
-          const plays = room.currentTrick?.plays || [];
-
-          if (
-            !Array.isArray(plays) ||
-            plays.length >= MAX_PLAYERS ||
-            plays.some(p => p.uid === uid)
-          ) {
-            return;
+          if (state.roundNumber !== expectedRound) {
+            throw new HttpsError(
+              "failed-precondition",
+              "The round has changed."
+            );
           }
 
-          // Prevent the same card from being played twice.
-          const previouslyPlayed = [
-            ...plays,
-            ...(room.lastTrick?.plays || [])
-          ];
+          // Milestone 4 supports Round 1.
+          if (state.roundNumber !== 1) {
+            throw new HttpsError(
+              "failed-precondition",
+              "Only Round 1 is currently supported."
+            );
+          }
 
+          state.playedCards =
+            state.playedCards || {};
+
+          const previousPlays =
+            state.playedCards[uid] || [];
+
+          // Idempotent retry of an accepted card play.
           if (
-            previouslyPlayed.some(
-              p => cardId(p.card) === selectedCardId
+            previousPlays.some(
+              c => cardId(c) === selectedCardId
             )
           ) {
-            return;
+            return state;
           }
 
-          // Follow suit when possible.
+          if (state.phase !== "playing") {
+            throw new HttpsError(
+              "failed-precondition",
+              "The game is not in the playing phase."
+            );
+          }
+
+          if (state.currentPlayerId !== uid) {
+            throw new HttpsError(
+              "failed-precondition",
+              "It is not your turn."
+            );
+          }
+
+          const hand = state.hands?.[uid] || [];
+
+          // Validate card ownership inside transaction.
+          const cardIndex = hand.findIndex(
+            c => cardId(c) === selectedCardId
+          );
+
+          if (cardIndex < 0) {
+            throw new HttpsError(
+              "failed-precondition",
+              "Card is not in your hand."
+            );
+          }
+
+          const plays =
+            state.currentTrick?.plays || [];
+
+          if (
+            plays.length >= MAX_PLAYERS ||
+            plays.some(play => play.uid === uid)
+          ) {
+            throw new HttpsError(
+              "failed-precondition",
+              "You have already played in this trick."
+            );
+          }
+
+          // Enforce follow-suit rule.
           if (plays.length > 0) {
             const leadSuit = plays[0].card.suit;
 
-            const hasLeadSuit = hand.cards.some(
+            const hasLeadSuit = hand.some(
               c => c.suit === leadSuit
             );
 
@@ -1225,117 +1543,145 @@ exports.playCard = onCall(
               hasLeadSuit &&
               card.suit !== leadSuit
             ) {
-              return;
+              throw new HttpsError(
+                "failed-precondition",
+                "You must follow the lead suit."
+              );
             }
           }
 
-          const updatedPlays = [
-            ...plays,
-            { uid, card }
+          // Remove card from authoritative hand.
+          state.hands[uid] = hand.filter(
+            c => cardId(c) !== selectedCardId
+          );
+
+          // Record played card for duplicate protection.
+          state.playedCards[uid] = [
+            ...previousPlays,
+            card
           ];
 
-          room.currentTrick = {
+          const updatedPlays = [
+            ...plays,
+            {
+              uid,
+              card
+            }
+          ];
+
+          state.trickNumber =
+            state.trickNumber || 1;
+
+          state.currentTrick = {
+            trickNumber: state.trickNumber,
             plays: updatedPlays
           };
 
           if (updatedPlays.length < MAX_PLAYERS) {
-            const currentIndex = order.indexOf(uid);
+            // Move to the next player.
+            const index = order.indexOf(uid);
 
-            room.currentPlayerId =
-              order[(currentIndex + 1) % MAX_PLAYERS];
+            state.currentPlayerId =
+              order[(index + 1) % MAX_PLAYERS];
+
           } else {
+            // All four players have played.
             const winnerUid =
               determineTrickWinner(updatedPlays);
 
-            room.tricksWon = room.tricksWon || {};
-            room.tricksWon[winnerUid] =
-              (room.tricksWon[winnerUid] || 0) + 1;
+            state.tricksWon =
+              state.tricksWon || {};
 
-            room.lastTrick = {
+            state.tricksWon[winnerUid] =
+              (state.tricksWon[winnerUid] || 0) + 1;
+
+            const completedTrick = {
+              trickNumber: state.trickNumber,
               plays: updatedPlays,
               winnerUid
             };
 
-            room.currentTrick = {
-              plays: []
-            };
+            state.lastTrick = completedTrick;
 
-            // Round 1 contains exactly one trick.
-            room.phase = "round-complete";
-            room.currentPlayerId = null;
+            state.completedTricks = [
+              ...(state.completedTricks || []),
+              completedTrick
+            ];
 
-            room.roundScores = {};
-            for (const playerUid of order) {
-              const bid = room.predictions?.[playerUid];
-              const won = room.tricksWon?.[playerUid] || 0;
+            state.currentTrick = null;
 
-              const score =
-                Number.isInteger(bid) && bid === won
-                  ? 11 * bid + 10
-                  : 0;
+            const roundComplete =
+              state.completedTricks.length ===
+              state.roundNumber;
 
-              room.roundScores[playerUid] = score;
-              room.players[playerUid].totalScore =
-                (room.players[playerUid].totalScore || 0) +
-                score;
+            if (roundComplete) {
+              state.phase = "round-complete";
+              state.currentPlayerId = null;
+
+              state.roundScores = {};
+              state.totalScores =
+                state.totalScores || {};
+
+              for (const playerUid of order) {
+                const prediction =
+                  state.predictions?.[playerUid];
+
+                const tricksWon =
+                  state.tricksWon[playerUid] || 0;
+
+                const score =
+                  prediction === tricksWon
+                    ? 11 * prediction + 10
+                    : 0;
+
+                state.roundScores[playerUid] =
+                  score;
+
+                state.totalScores[playerUid] =
+                  (state.totalScores[playerUid] || 0) +
+                  score;
+              }
+
+            } else {
+              // Winner leads the next trick.
+              state.trickNumber += 1;
+              state.currentPlayerId = winnerUid;
             }
           }
 
-          room.updatedAt = Date.now();
+          state.revision =
+            (state.revision || 0) + 1;
 
-          return room;
-        },
-        undefined,
-        false
+          state.updatedAt = Date.now();
+
+          return state;
+        }
       );
 
-      if (!result.committed) {
-        throw new HttpsError(
-          "failed-precondition",
-          "Card play rejected. Check your turn and card."
-        );
-      }
+      // Synchronize private hand first, then publish
+      // the new public turn.
+      await syncPrivateHand(code, state, uid);
 
-      // Remove the played card from the player's private
-      // hand. This is a separate write and is therefore
-      // not atomic with the room transaction.
-      await handRef.transaction(
-        (currentHand) => {
-          if (!currentHand) {
-            return;
-          }
-
-          if (
-            currentHand.roundNumber !==
-            initialRoom.roundNumber
-          ) {
-            return;
-          }
-
-          currentHand.cards = (
-            currentHand.cards || []
-          ).filter(
-            c => cardId(c) !== selectedCardId
-          );
-
-          return currentHand;
-        },
-        undefined,
-        false
-      );
-
-      const updatedRoom = result.snapshot.val();
+      await syncPublicRoom(code, state);
 
       return {
         code,
         card,
-        phase: updatedRoom.phase,
-        currentPlayerId: updatedRoom.currentPlayerId,
-        currentTrick: updatedRoom.currentTrick || null,
-        lastTrick: updatedRoom.lastTrick || null,
-        tricksWon: updatedRoom.tricksWon || {},
-        roundScores: updatedRoom.roundScores || {}
+        roundNumber: state.roundNumber,
+        phase: state.phase,
+        currentPlayerId:
+          state.currentPlayerId || null,
+        currentTrick:
+          state.currentTrick || null,
+        lastTrick:
+          state.lastTrick || null,
+        tricksWon:
+          state.tricksWon || {},
+        roundScores:
+          state.roundScores || {},
+        revision: state.revision
       };
+
     } catch (error) {
       normalizeError(error);
     }
@@ -1343,54 +1689,5 @@ exports.playCard = onCall(
 );
 
 
-
-function getCardSuit(card) {
-  // Assumes cards have a suit property.
-  return card?.suit;
-}
-
-function getCardRank(card) {
-  const rank = card?.rank;
-
-  if (typeof rank === "number") {
-    return rank;
-  }
-
-  const values = {
-    A: 14,
-    K: 13,
-    Q: 12,
-    J: 11
-  };
-
-  return values[String(rank).toUpperCase()] ??
-    Number(rank);
-}
-
-function getTrickWinner(plays) {
-  const leadSuit = getCardSuit(plays[0].card);
-
-  function strength(card) {
-    const suit = getCardSuit(card);
-    const rank = getCardRank(card);
-
-    if (String(suit).toUpperCase() === "H" ||
-        String(suit).toLowerCase() === "hearts") {
-      return 200 + rank;
-    }
-
-    if (suit === leadSuit) {
-      return 100 + rank;
-    }
-
-    return 0;
-  }
-
-  return plays.reduce((best, play) =>
-    strength(play.card) > strength(best.card)
-      ? play
-      : best
-  ).uid;
-}
 
 
