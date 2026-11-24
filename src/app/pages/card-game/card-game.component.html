@@ -200,6 +200,12 @@
         <p>Shuffling and dealing cards...</p>
       </div>
 
+      <button
+        type="button"
+        (click)="debugGameState()">
+        Check Game State
+      </button>
+
       <!-- PREDICTION PHASE -->
       <div
         *ngIf="room?.status === 'playing'"

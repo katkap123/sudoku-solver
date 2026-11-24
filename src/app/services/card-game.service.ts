@@ -53,8 +53,6 @@ interface CreateRoomResponse {
   status: string;
 }
 
-
-
 interface JoinRoomResponse {
   code: string;
   roomCode: string;
@@ -171,7 +169,6 @@ async checkGameState(code: string): Promise<any> {
 
   return result.data;
 }
-
 
   async dealRound(code: string): Promise<DealRoundResponse> {
     await this.signIn();
