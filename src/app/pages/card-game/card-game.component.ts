@@ -30,6 +30,11 @@ export class CardGameComponent implements OnDestroy {
 
   readonly maxRounds = 13;
 
+  readonly scorecardRounds = Array.from(
+    { length: this.maxRounds },
+    (_, index) => index + 1
+  );
+
   name = '';
   joinCode = '';
   code = '';
@@ -63,6 +68,75 @@ export class CardGameComponent implements OnDestroy {
 
   get playerCount(): number {
     return this.playerEntries.length;
+  }
+
+  get scorecardPlayerIds(): string[] {
+    return this.room?.playerOrder || [];
+  }
+
+  getHistoricalRoundScore(
+    roundNumber: number,
+    playerUid: string
+  ): number | null {
+  
+    const score =
+      this.room?.scoreHistory?.[
+        String(roundNumber)
+      ]?.[playerUid];
+  
+    return typeof score === 'number'
+      ? score
+      : null;
+  }
+
+  getScorecardTotal(playerUid: string): number {
+    return this.scorecardRounds.reduce(
+      (total, roundNumber) => {
+        const score = this.getHistoricalRoundScore(
+          roundNumber,
+          playerUid
+        );
+  
+        return total + (score ?? 0);
+      },
+      0
+    );
+  }
+
+  get scorecardHighestTotal(): number {
+    return Math.max(
+      0,
+      ...this.scorecardPlayerIds.map(
+        uid => this.getScorecardTotal(uid)
+      )
+    );
+  }
+
+  isScorecardLeader(playerUid: string): boolean {
+    const total = this.getScorecardTotal(playerUid);
+  
+    return (
+      total > 0 &&
+      total === this.scorecardHighestTotal
+    );
+  }
+
+  isScorecardRoundComplete(
+    roundNumber: number
+  ): boolean {
+  
+    const playerIds = this.scorecardPlayerIds;
+  
+    return (
+      playerIds.length === 4 &&
+      playerIds.every(
+        uid =>
+          this.getHistoricalRoundScore(
+            roundNumber,
+            uid
+          ) !== null
+      )
+    );
   }
 
   get isHost(): boolean {

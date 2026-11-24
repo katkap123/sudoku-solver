@@ -813,6 +813,7 @@ exports.checkCardGameState = onCall(
           (state.completedTricks || []).length,
 
         totalScores: state.totalScores || {},
+        scoreHistory: state.scoreHistory || {},
 
         roomRevision: room.revision || 0,
         revision: state.revision || 0,
@@ -970,8 +971,8 @@ exports.dealCardRound = onCall(
 
           try {
             let totalScores = {};
+            let scoreHistory = {};
             let previousRevision = -1;
-
             if (state === null) {
 
               // Only Round 1 can initialize game state.
@@ -1067,12 +1068,9 @@ exports.dealCardRound = onCall(
                 );
               }
 
-              totalScores = {
-                ...(state.totalScores || {})
-              };
-
-              previousRevision =
-                state.revision || 0;
+              totalScores = { ...(state.totalScores || {}) };
+              scoreHistory = { ...(state.scoreHistory || {}) };
+              previousRevision = state.revision || 0;
             }
 
             // Create the next authoritative round.
@@ -1104,7 +1102,7 @@ exports.dealCardRound = onCall(
 
               tricksWon: {},
               roundScores: {},
-
+              scoreHistory,
               totalScores,
 
               revision: previousRevision + 1,
@@ -1398,6 +1396,9 @@ async function syncPublicRoom(code, state) {
 
         roundScores:
           state.roundScores || null,
+
+        scoreHistory:
+          state.scoreHistory || null,
 
         winnerIds:
           state.winnerIds || null,
@@ -1990,6 +1991,12 @@ exports.playCard = onCall(
               score;
           }
 
+          // Record each completed round in the authoritative transaction.
+          state.scoreHistory = state.scoreHistory || {};
+          state.scoreHistory[String(state.roundNumber)] = {
+            ...state.roundScores
+          };
+
           // Final game completion.
           if (state.roundNumber === MAX_ROUNDS) {
 
@@ -2054,6 +2061,9 @@ exports.playCard = onCall(
 
         roundScores:
           state.roundScores || {},
+
+        scoreHistory:
+          state.scoreHistory || {},
 
         totalScores:
           state.totalScores || {},

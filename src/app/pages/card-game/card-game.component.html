@@ -837,71 +837,149 @@
           </div>
 
           <!-- SCOREBOARD -->
-          <div class="scoreboard-panel">
+         <!-- ROUND-BY-ROUND SCORECARD -->
 
-            <h3>Scoreboard</h3>
+<div
+class="scoreboard-panel"
+*ngIf="scorecardPlayerIds.length === 4"
+>
+<div class="scorecard-header">
+  <h3>Game Scorecard</h3>
 
-            <div class="scoreboard-wrapper">
+  <span class="scorecard-round-badge">
+    Round {{ currentRoundNumber }} of {{ maxRounds }}
+  </span>
+</div>
 
-              <table class="scoreboard">
+<div class="scoreboard-wrapper">
+  <table class="scoreboard round-scorecard">
 
-                <thead>
+    <!-- PLAYER HEADERS -->
 
-                  <tr>
-                    <th>Player</th>
-                    <th>Bid</th>
-                    <th>Won</th>
-                    <th>Round Score</th>
-                    <th>Total Score</th>
-                  </tr>
+    <thead>
+      <tr>
+        <th class="round-column">Round</th>
 
-                </thead>
-
-                <tbody>
-
-                  <tr
-                    *ngFor="let uid of tablePlayerOrder"
-                    [class.my-score-row]="uid === myId">
-
-                    <td>
-
-                      {{ getPlayerName(uid) }}
-
-                      <span *ngIf="uid === myId">
-                        (You)
-                      </span>
-
-                    </td>
-
-                    <td>
-                      {{ getPlayerPrediction(uid) ?? '-' }}
-                    </td>
-
-                    <td>
-                      {{ getPlayerTricksWon(uid) }}
-                    </td>
-
-                    <td>
-                      {{ getPlayerRoundScore(uid) }}
-                    </td>
-
-                    <td>
-
-                      <strong>
-                        {{ getPlayerTotalScore(uid) }}
-                      </strong>
-
-                    </td>
-
-                  </tr>
-
-                </tbody>
-
-              </table>
-
-            </div>
-
+        <th
+          *ngFor="let uid of scorecardPlayerIds"
+          [class.my-score-column]="uid === myId"
+          [class.leader-column]="isScorecardLeader(uid)"
+        >
+          <div class="scorecard-player-name">
+            {{ getPlayerName(uid) }}
           </div>
+
+          <span
+            *ngIf="uid === myId"
+            class="scorecard-you-label"
+          >
+            (You)
+          </span>
+        </th>
+      </tr>
+    </thead>
+
+    <!-- ALL 13 ROUNDS -->
+
+    <tbody>
+      <tr
+        *ngFor="let round of scorecardRounds"
+        [class.completed-round]="
+          isScorecardRoundComplete(round)
+        "
+        [class.current-round]="
+          round === currentRoundNumber &&
+          !isScorecardRoundComplete(round)
+        "
+        [class.pending-round]="
+          round > currentRoundNumber
+        "
+      >
+        <td class="round-column">
+          <span
+            *ngIf="
+              round === currentRoundNumber &&
+              !isScorecardRoundComplete(round)
+            "
+            class="current-round-indicator"
+          >
+            ▶
+          </span>
+
+          Round {{ round }}
+        </td>
+
+        <td
+          *ngFor="let uid of scorecardPlayerIds"
+          [class.my-score-column]="uid === myId"
+          [class.earned-score]="
+            (getHistoricalRoundScore(round, uid) ?? 0) > 0
+          "
+          [class.zero-score]="
+            getHistoricalRoundScore(round, uid) === 0
+          "
+          [class.pending-score]="
+            getHistoricalRoundScore(round, uid) === null
+          "
+        >
+          {{ getHistoricalRoundScore(round, uid) ?? '—' }}
+        </td>
+      </tr>
+    </tbody>
+
+    <!-- AUTOMATIC CUMULATIVE TOTAL -->
+
+    <tfoot>
+      <tr class="scorecard-total-row">
+        <td class="round-column">
+          Total
+        </td>
+
+        <td
+          *ngFor="let uid of scorecardPlayerIds"
+          [class.my-score-column]="uid === myId"
+          [class.leader-total]="isScorecardLeader(uid)"
+        >
+          <span class="scorecard-total-value">
+            {{ getScorecardTotal(uid) }}
+          </span>
+
+          <span
+            *ngIf="isScorecardLeader(uid)"
+            class="scorecard-leader-icon"
+          >
+            🏆
+          </span>
+        </td>
+      </tr>
+    </tfoot>
+
+  </table>
+</div>
+
+<!-- SCORECARD LEGEND -->
+
+  <div class="scorecard-legend">
+    <span>
+      <span class="legend-earned">21</span>
+      Correct prediction
+    </span>
+
+    <span>
+      <span class="legend-zero">0</span>
+      Missed prediction
+    </span>
+
+    <span>
+      <span class="legend-pending">—</span>
+      Pending
+    </span>
+
+    <span>
+      🏆 Leader
+    </span>
+  </div>
+  </div>
 
           <!-- NEXT ROUND -->
           <div

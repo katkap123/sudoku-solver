@@ -74,6 +74,11 @@ export interface CardPlayer {
   totalScore: number;
 }
 
+export type CardScoreHistory = Record<
+  string,
+  Record<string, number>
+>;
+
 export interface CardRoom {
   code: string;
 
@@ -117,6 +122,7 @@ export interface CardRoom {
   tricksWon?: Record<string, number>;
 
   roundScores?: Record<string, number>;
+  scoreHistory?: CardScoreHistory;
 
   // Final game results.
   winnerIds?: string[];
@@ -211,6 +217,7 @@ export interface PlayCardResponse {
   tricksWon: Record<string, number>;
 
   roundScores: Record<string, number>;
+  scoreHistory?: CardScoreHistory;
 
   totalScores: Record<string, number>;
 
@@ -280,6 +287,7 @@ export interface GameStateCheckResponse {
   completedTrickCount: number;
 
   totalScores: Record<string, number>;
+  scoreHistory?: CardScoreHistory;
 
   roomRevision: number;
 
