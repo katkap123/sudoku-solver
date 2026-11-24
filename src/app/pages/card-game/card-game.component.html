@@ -13,6 +13,7 @@
   </p>
 
   <!-- CREATE / JOIN ROOM -->
+  <ng-container *ngIf="showMultiplayerLobby">
   <ng-container *ngIf="!room; else lobby">
 
     <div class="game-panel">
@@ -597,13 +598,13 @@
               ">
 
               <div class="seat-player-name">
-
-                {{ getPlayerName(uid) }}
-
-                <span *ngIf="uid === myId">
-                  (You)
+                <span class="seat-name">
+                  {{ getPlayerName(uid) }}
                 </span>
-
+              
+                <span class="seat-player-score">
+                  {{ getPlayerTotalScore(uid) }}
+                </span>
               </div>
 
               <div class="seat-player-stats">
@@ -1199,5 +1200,6 @@ class="scoreboard-panel"
     </div>
 
   </ng-template>
+</ng-container>
 
 </section>

@@ -384,3 +384,46 @@ button.recovery-button { background: #475569; } button.recovery-button:hover:not
       gap: 8px 12px;
     }
   }
+
+  // ========================================
+// PLAYER SCORE ON CARD TABLE
+// ========================================
+
+.seat-player-name {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 5px;
+  }
+  
+  .seat-name {
+    overflow-wrap: anywhere;
+  }
+  
+  .seat-player-score {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 24px;
+    padding: 3px 7px;
+    background: #fef3c7;
+    color: #92400e;
+    border: 1px solid #fbbf24;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  
+  @media (max-width: 600px) {
+    .seat-player-name {
+      gap: 3px;
+    }
+  
+    .seat-player-score {
+      min-width: 18px;
+      padding: 2px 5px;
+      font-size: 10px;
+    }
+  }
