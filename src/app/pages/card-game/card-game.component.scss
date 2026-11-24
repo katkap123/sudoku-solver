@@ -391,11 +391,33 @@
   // ========================================
   
   .table-seat.active-seat {
-    border-color: #fde047;
-    background: rgba(250, 204, 21, 0.13);
+    border: 2px solid #facc15;
+    animation: blink-player 1s ease-in-out infinite;
+  }
   
-    box-shadow:
-      0 0 14px rgba(250, 204, 21, 0.35);
+  .table-seat.active-seat .seat-player-name {
+    color: #fde047;
+    font-weight: 800;
+  }
+  
+  @keyframes blink-player {
+    0%, 100% {
+      background: rgba(250, 204, 21, 0.15);
+      box-shadow: 0 0 5px #facc15;
+    }
+  
+    50% {
+      background: rgba(250, 204, 21, 0.55);
+      box-shadow: 0 0 25px #facc15;
+    }
+  }
+  
+  @media (prefers-reduced-motion: reduce) {
+    .table-seat.active-seat {
+      animation: none;
+      background: rgba(250, 204, 21, 0.35);
+      box-shadow: 0 0 15px #facc15;
+    }
   }
   
   .table-seat.winner-seat {
