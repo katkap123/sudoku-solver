@@ -21,8 +21,9 @@ import {
   standalone: true,
   imports: [CommonModule, FormsModule],
   templateUrl: './card-game.component.html',
-  styleUrl: './card-game.component.scss'
+  styleUrls: ['./card-game.component.scss']
 })
+
 export class CardGameComponent implements OnDestroy {
 
   private game = inject(CardGameService);
