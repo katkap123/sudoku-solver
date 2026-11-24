@@ -1,852 +1,915 @@
 
 // ========================================
-// MAIN GAME CONTAINER
+// MILESTONE 5 — MULTI-ROUND GAME STYLING
 // ========================================
 
-.card-game {
-    max-width: 920px;
-    margin: 30px auto;
-    padding: 20px;
-    font-family: Arial, sans-serif;
-    border: 1px solid #d1d5db;
-    border-radius: 12px;
-    box-sizing: border-box;
-    color: #1e293b;
-  }
-  
-  h1 {
-    text-align: center;
-    margin-bottom: 10px;
-  }
-  
-  .subtitle {
-    text-align: center;
-    color: #64748b;
-    margin-bottom: 25px;
-    line-height: 1.6;
-  }
-  
-  .game-panel {
-    background: #fff;
-    padding: 25px;
-    border-radius: 12px;
-    border: 1px solid #ddd;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.06);
-  }
-  
-  // ========================================
-  // INPUTS AND BUTTONS
-  // ========================================
-  
-  label {
-    display: block;
-    margin: 15px 0 8px;
-    font-weight: 600;
-  }
-  
-  input {
-    display: block;
-    width: 100%;
-    max-width: 320px;
-    padding: 12px;
-    border: 1px solid #ccc;
-    border-radius: 6px;
-    box-sizing: border-box;
-    font-size: 16px;
-  }
-  
-  .actions {
+// ========================================
+// GAME UTILITIES AND RECOVERY
+// ========================================
+
+.game-utilities {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
+    align-items: center;
+    gap: 10px;
+  
     margin-top: 20px;
+    padding: 14px;
+  
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 10px;
   }
   
-  button {
-    padding: 12px 20px;
-    margin: 6px 8px 6px 0;
-    border: none;
-    border-radius: 6px;
-    background: #2563eb;
-    color: white;
-    cursor: pointer;
-    font-size: 15px;
-    font-weight: 600;
-    transition: background 0.2s ease;
+  .game-utilities button {
+    margin: 0;
+    font-size: 13px;
+    padding: 10px 16px;
   }
   
-  button:hover:not(:disabled) {
-    background: #1d4ed8;
-  }
-  
-  button:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
-  
-  button:focus-visible {
-    outline: 3px solid #60a5fa;
-    outline-offset: 3px;
-  }
-  
-  button.secondary {
-    background: #64748b;
-  }
-  
-  button.secondary:hover:not(:disabled) {
+  button.recovery-button {
     background: #475569;
   }
   
-  .separator {
-    text-align: center;
-    margin: 25px 0;
-    color: #777;
+  button.recovery-button:hover:not(:disabled) {
+    background: #334155;
+  }
+  
+  button.diagnostic-button {
+    background: #64748b;
+  }
+  
+  .recovery-hint {
+    flex-basis: 100%;
+    margin: 0;
+    color: #64748b;
+    font-size: 12px;
+    line-height: 1.5;
   }
   
   // ========================================
-  // MULTIPLAYER LOBBY
+  // ROUND PROGRESS
   // ========================================
   
-  .room-info {
+  .round-progress-panel {
+    margin-bottom: 24px;
+    padding: 18px;
+  
     background: #f8fafc;
-    padding: 15px;
-    border-radius: 8px;
-    margin: 20px 0;
-  }
-  
-  .room-code {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-    flex-wrap: wrap;
-  }
-  
-  .room-code strong {
-    font-size: 26px;
-    letter-spacing: 3px;
-  }
-  
-  .player-list {
-    list-style: none;
-    padding: 0;
-  }
-  
-  .player-list li {
-    padding: 12px;
-    border-bottom: 1px solid #eee;
-    display: flex;
-    gap: 10px;
-    flex-wrap: wrap;
-  }
-  
-  li {
-    margin: 8px 0;
-  }
-  
-  .waiting-message {
-    margin-top: 20px;
-    color: #b45309;
-  }
-  
-  .ready-panel {
-    margin-top: 25px;
-    padding: 20px;
-    background: #f0fdf4;
-    border-radius: 8px;
-  }
-  
-  .player-order li {
-    padding: 8px 0;
-  }
-  
-  .error {
-    color: #b91c1c;
-    background: #fef2f2;
-    padding: 12px;
-    border-radius: 6px;
-    margin-bottom: 20px;
-    overflow-wrap: anywhere;
-  }
-  
-  // ========================================
-  // DEALING AND PREDICTIONS
-  // ========================================
-  
-  .deal-panel,
-  .round-panel {
-    margin-top: 24px;
-    padding: 20px;
-    border: 1px solid #ddd;
+    border: 1px solid #e2e8f0;
     border-radius: 12px;
   }
   
-  .round-panel select {
-    padding: 10px;
-    font-size: 16px;
-    margin-right: 12px;
-    border: 1px solid #cbd5e1;
-    border-radius: 6px;
-    background: white;
-  }
-  
-  .round-panel button {
-    margin-top: 12px;
-  }
-  
-  // ========================================
-  // PLAYING CARDS
-  // ========================================
-  
-  .my-cards {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 12px;
-    margin: 20px 0;
-  }
-  
-  .playing-card {
-    width: 75px;
-    height: 105px;
-    background: #fff;
-    border: 2px solid #334155;
-    border-radius: 9px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 28px;
-    font-weight: bold;
-    color: #111827;
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.12);
-    box-sizing: border-box;
-    flex-shrink: 0;
-    user-select: none;
-  }
-  
-  .playing-card.red-card {
-    color: #dc2626;
-  }
-  
-  // ========================================
-  // GAMEPLAY HEADER
-  // ========================================
-  
-  .gameplay-panel {
-    margin-top: 24px;
-  }
-  
-  .trick-header {
+  .round-progress-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     flex-wrap: wrap;
-    gap: 12px;
-    margin-bottom: 16px;
+    gap: 10px;
+    margin-bottom: 14px;
   }
   
-  .trick-header h3 {
+  .round-progress-header h3 {
     margin: 0;
+    color: #1e293b;
+    font-size: 21px;
   }
   
-  .trump-indicator {
-    padding: 8px 12px;
-    background: #fef2f2;
-    border: 1px solid #fecaca;
+  .round-phase {
+    padding: 6px 12px;
+    background: #e0e7ff;
+    color: #3730a3;
     border-radius: 20px;
-    color: #b91c1c;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  
+  .round-progress-track {
+    width: 100%;
+    height: 10px;
+  
+    background: #e2e8f0;
+    border-radius: 20px;
+    overflow: hidden;
+  }
+  
+  .round-progress-fill {
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      #16a34a,
+      #22c55e
+    );
+  
+    border-radius: 20px;
+    transition: width 0.4s ease;
+  }
+  
+  .round-progress-text {
+    margin: 10px 0 0;
+    color: #64748b;
+    font-size: 13px;
+  }
+  
+  // ========================================
+  // SYNCHRONIZATION MESSAGE
+  // ========================================
+  
+  .sync-message {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+  
+    padding: 14px;
+    margin-bottom: 20px;
+  
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 8px;
+  
+    color: #1d4ed8;
     font-size: 14px;
     font-weight: 600;
   }
   
-  // ========================================
-  // TURN INDICATOR
-  // ========================================
+  .sync-spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
   
-  .turn-banner {
-    padding: 14px;
-    margin-bottom: 20px;
-    border: 1px solid #cbd5e1;
-    border-radius: 8px;
-    background: #f1f5f9;
-    color: #475569;
-    text-align: center;
+    border: 3px solid #bfdbfe;
+    border-top-color: #2563eb;
+    border-radius: 50%;
+  
+    flex-shrink: 0;
+  
+    animation: sync-spin 0.8s linear infinite;
   }
   
-  .turn-banner.my-turn {
-    background: #dcfce7;
-    border-color: #86efac;
-    color: #166534;
-  }
-  
-  // ========================================
-  // FOUR-PLAYER CARD TABLE
-  // ========================================
-  
-  .card-table {
-    display: grid;
-  
-    grid-template-columns:
-      minmax(0, 1fr)
-      minmax(0, 1fr)
-      minmax(0, 1fr);
-  
-    grid-template-areas:
-      ". top ."
-      "left center right"
-      ". bottom .";
-  
-    align-items: center;
-    justify-items: center;
-  
-    gap: 12px;
-    padding: 24px 16px;
-    min-height: 440px;
-  
-    background: radial-gradient(
-      ellipse at center,
-      #218653 0%,
-      #166534 55%,
-      #0b4527 100%
-    );
-  
-    border: 8px solid #783f23;
-    border-radius: 42px;
-  
-    box-shadow:
-      inset 0 0 30px rgba(0, 0, 0, 0.25),
-      0 6px 18px rgba(0, 0, 0, 0.15);
-  
-    box-sizing: border-box;
-  }
-  
-  // ========================================
-  // PLAYER SEATING
-  // ========================================
-  
-  .table-seat {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  
-    width: 100%;
-    max-width: 150px;
-    min-width: 0;
-    min-height: 145px;
-  
-    gap: 7px;
-    padding: 10px 6px;
-  
-    color: white;
-    text-align: center;
-  
-    background: rgba(0, 0, 0, 0.12);
-    border: 2px solid transparent;
-    border-radius: 12px;
-    box-sizing: border-box;
-  
-    transition:
-      border-color 0.2s ease,
-      background 0.2s ease;
-  }
-  
-  .seat-top {
-    grid-area: top;
-  }
-  
-  .seat-left {
-    grid-area: left;
-  }
-  
-  .seat-right {
-    grid-area: right;
-  }
-  
-  .seat-bottom {
-    grid-area: bottom;
-  }
-  
-  .seat-player-name {
-    max-width: 100%;
-    font-size: 15px;
-    font-weight: 700;
-    overflow-wrap: anywhere;
-  }
-  
-  .seat-player-name span {
-    font-size: 12px;
-    color: #bbf7d0;
-  }
-  
-  .seat-player-stats {
-    display: flex;
-    justify-content: center;
-    flex-wrap: wrap;
-    gap: 8px;
-    font-size: 12px;
-    color: #d1fae5;
-  }
-  
-  // ========================================
-  // ACTIVE PLAYER AND WINNER
-  // ========================================
-  
-  .table-seat.active-seat {
-    border: 2px solid #facc15;
-    animation: blink-player 1s ease-in-out infinite;
-  }
-  
-  .table-seat.active-seat .seat-player-name {
-    color: #fde047;
-    font-weight: 800;
-  }
-  
-  @keyframes blink-player {
-    0%, 100% {
-      background: rgba(250, 204, 21, 0.15);
-      box-shadow: 0 0 5px #facc15;
-    }
-  
-    50% {
-      background: rgba(250, 204, 21, 0.55);
-      box-shadow: 0 0 25px #facc15;
-    }
-  }
-  
-  @media (prefers-reduced-motion: reduce) {
-    .table-seat.active-seat {
-      animation: none;
-      background: rgba(250, 204, 21, 0.35);
-      box-shadow: 0 0 15px #facc15;
-    }
-  }
-  
-  .table-seat.winner-seat {
-    border-color: #facc15;
-    background: rgba(250, 204, 21, 0.2);
-  }
-  
-  .seat-turn-label,
-  .seat-winner-label {
-    padding: 4px 10px;
-    border-radius: 20px;
-    background: #facc15;
-    color: #422006;
-    font-size: 11px;
-    font-weight: bold;
-  }
-  
-  // ========================================
-  // CARDS PLAYED ON THE TABLE
-  // ========================================
-  
-  .table-card {
-    width: 58px;
-    height: 80px;
-    font-size: 23px;
-    border: 1px solid #e2e8f0;
-  
-    box-shadow:
-      0 4px 10px rgba(0, 0, 0, 0.25);
-  
-    animation: card-appear 0.2s ease-out;
-  }
-  
-  .empty-card {
-    width: 58px;
-    height: 80px;
-  
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  
-    border: 2px dashed rgba(255, 255, 255, 0.4);
-    border-radius: 8px;
-  
-    color: rgba(255, 255, 255, 0.6);
-    font-size: 24px;
-  
-    box-sizing: border-box;
-  }
-  
-  @keyframes card-appear {
-    from {
-      opacity: 0;
-      transform: scale(0.85);
-    }
-  
+  @keyframes sync-spin {
     to {
-      opacity: 1;
-      transform: scale(1);
+      transform: rotate(360deg);
     }
   }
   
   // ========================================
-  // TABLE CENTER
+  // PREDICTION PHASE — PRIVATE HAND
   // ========================================
   
-  .table-center {
-    grid-area: center;
-  
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-  
-    min-width: 0;
-    gap: 8px;
-  
-    color: #fff;
-    text-align: center;
-    overflow-wrap: anywhere;
-  }
-  
-  .table-center strong {
-    font-size: 15px;
-  }
-  
-  .table-center span {
-    color: #d1fae5;
-    font-size: 12px;
-  }
-  
-  .table-trump {
-    color: #fca5a5;
-    font-size: 42px;
-    line-height: 1;
-  }
-  
-  // ========================================
-  // PRIVATE PLAYER HAND
-  // ========================================
-  
-  .hand-panel {
-    margin-top: 24px;
+  .prediction-hand-panel {
     padding: 20px;
+    margin-bottom: 24px;
+  
     background: #f8fafc;
     border: 1px solid #e2e8f0;
     border-radius: 12px;
+  
     text-align: center;
   }
   
-  .hand-panel h4 {
-    margin: 0 0 12px;
+  .prediction-hand-panel h4 {
+    margin: 0 0 15px;
   }
   
-  .hand-panel p {
+  .prediction-hand-panel .my-cards {
+    justify-content: center;
+    align-items: center;
+  }
+  
+  .prediction-hand-panel p {
     color: #64748b;
     font-size: 14px;
   }
   
-  .hand-panel .my-cards {
-    justify-content: center;
-    align-items: center;
-    gap: 12px;
-  }
-  
-  // Override the normal blue button styling.
-  
-  .round-panel .playable-card {
-    padding: 0;
-    margin: 0;
-    background: #fff;
-    color: #111827;
-    border: 2px solid #94a3b8;
-    font-size: 28px;
-  
-    transition:
-      transform 0.18s ease,
-      box-shadow 0.18s ease,
-      border-color 0.18s ease;
-  }
-  
-  .round-panel .playable-card.red-card {
-    color: #dc2626;
-  }
-  
-  .round-panel .playable-card.card-enabled {
-    border-color: #16a34a;
-    cursor: pointer;
-  
-    box-shadow:
-      0 4px 12px rgba(22, 163, 74, 0.2);
-  }
-  
-  .round-panel .playable-card:hover:not(:disabled) {
-    background: #fff;
-    border-color: #16a34a;
-    transform: translateY(-8px);
-  
-    box-shadow:
-      0 8px 18px rgba(22, 163, 74, 0.3);
-  }
-  
-  .round-panel .playable-card:active:not(:disabled) {
-    transform: translateY(-3px);
-  }
-  
-  .round-panel .playable-card:disabled {
-    background: #f1f5f9;
-    opacity: 0.65;
-    cursor: not-allowed;
-    transform: none;
-  }
-  
   // ========================================
-  // TRICK RESULT
+  // ROTATING PREDICTION ORDER
   // ========================================
   
-  .trick-result {
-    margin-top: 18px;
-    padding: 15px;
-    border: 1px solid #fde68a;
-    border-radius: 8px;
-    background: #fffbeb;
-    color: #92400e;
-    text-align: center;
+  .prediction-order-panel {
+    margin: 24px 0;
   }
   
-  // ========================================
-  // ROUND COMPLETION
-  // ========================================
-  
-  .round-complete-panel {
-    margin-top: 24px;
-    padding: 24px;
-    background: #f0fdf4;
-    border: 1px solid #86efac;
-    border-radius: 12px;
-    text-align: center;
+  .prediction-order-panel h4 {
+    margin-bottom: 8px;
+    font-size: 18px;
   }
   
-  .round-complete-panel h3 {
-    color: #166534;
+  .prediction-order-hint {
+    color: #64748b;
+    font-size: 13px;
     margin-top: 0;
   }
   
-  .personal-result {
-    display: grid;
-    grid-template-columns: repeat(4, minmax(0, 1fr));
-    gap: 12px;
-    margin: 20px 0;
+  .prediction-player-list {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
   
-  .personal-result > div {
+  .prediction-player {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+  
+    min-height: 58px;
+    padding: 12px;
+  
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 10px;
+  
+    box-sizing: border-box;
+  
+    transition:
+      background 0.2s ease,
+      border-color 0.2s ease;
+  }
+  
+  .prediction-position {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    width: 30px;
+    height: 30px;
+  
+    background: #e2e8f0;
+    color: #334155;
+    border-radius: 50%;
+  
+    font-size: 14px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+  
+  .prediction-player-info {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 4px;
+  }
+  
+  .prediction-player-info strong {
+    font-size: 15px;
+    overflow-wrap: anywhere;
+  }
+  
+  .prediction-player-info small {
+    color: #64748b;
+    font-size: 11px;
+  }
+  
+  .prediction-value {
+    min-width: 45px;
+    padding: 6px 10px;
+  
+    background: #e2e8f0;
+    color: #475569;
+    border-radius: 6px;
+  
+    text-align: center;
+    font-size: 13px;
+    font-weight: 600;
+  }
+  
+  .prediction-player.prediction-submitted {
+    background: #f0fdf4;
+    border-color: #bbf7d0;
+  }
+  
+  .prediction-submitted .prediction-value {
+    background: #dcfce7;
+    color: #166534;
+    font-size: 17px;
+    font-weight: 700;
+  }
+  
+  // ========================================
+  // BLINKING ACTIVE PREDICTION PLAYER
+  // ========================================
+  
+  .prediction-player.active-prediction {
+    border-color: #eab308;
+  
+    animation:
+      blink-prediction 1s ease-in-out infinite;
+  }
+  
+  .active-prediction .prediction-position {
+    background: #facc15;
+    color: #422006;
+  }
+  
+  .active-prediction .prediction-player-info strong {
+    color: #854d0e;
+  }
+  
+  .prediction-turn-label {
+    padding: 5px 10px;
+  
+    background: #facc15;
+    color: #422006;
+    border-radius: 20px;
+  
+    font-size: 11px;
+    font-weight: 700;
+  }
+  
+  @keyframes blink-prediction {
+    0%, 100% {
+      background: #fffbeb;
+      box-shadow:
+        0 0 3px rgba(234, 179, 8, 0.3);
+    }
+  
+    50% {
+      background: #fef3c7;
+      box-shadow:
+        0 0 14px rgba(234, 179, 8, 0.65);
+    }
+  }
+  
+  // ========================================
+  // PREDICTION INPUT
+  // ========================================
+  
+  .prediction-input-panel {
+    padding: 20px;
+    margin-top: 18px;
+  
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 12px;
+  
+    text-align: center;
+  }
+  
+  .prediction-input-panel label {
+    margin-top: 0;
+    margin-bottom: 14px;
+    color: #166534;
+  }
+  
+  .prediction-input-panel select {
+    min-width: 90px;
+    padding: 12px;
+    margin: 0;
+  
+    font-size: 18px;
+    font-weight: 600;
+    text-align: center;
+  }
+  
+  .prediction-input-panel button {
+    display: block;
+    margin: 16px auto 0;
+    min-width: 180px;
+  
+    background: #16a34a;
+  }
+  
+  .prediction-input-panel button:hover:not(:disabled) {
+    background: #15803d;
+  }
+  
+  .prediction-restriction {
+    margin: 16px 0;
+    padding: 12px;
+  
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+  
+    color: #92400e;
+    font-size: 13px;
+    line-height: 1.6;
+  }
+  
+  // ========================================
+  // NEXT ROUND PANEL
+  // ========================================
+  
+  .next-round-panel {
+    margin-top: 24px;
+    padding: 24px;
+  
+    background: #f0fdf4;
+    border: 2px solid #86efac;
+    border-radius: 14px;
+  
+    text-align: center;
+  }
+  
+  .next-round-panel h3 {
+    margin: 0 0 15px;
+    color: #166534;
+    font-size: 23px;
+  }
+  
+  .next-round-panel p {
+    color: #475569;
+    font-size: 14px;
+    line-height: 1.6;
+  }
+  
+  button.next-round-button {
+    min-width: 200px;
+    padding: 14px 24px;
+    margin: 15px 0 0;
+  
+    background: #16a34a;
+    color: white;
+  
+    font-size: 17px;
+    font-weight: 700;
+  }
+  
+  button.next-round-button:hover:not(:disabled) {
+    background: #15803d;
+  }
+  
+  .next-round-waiting {
+    padding: 12px;
+  
+    background: #fffbeb;
+    border: 1px solid #fde68a;
+    border-radius: 8px;
+  
+    color: #92400e !important;
+    font-weight: 600;
+  }
+  
+  // ========================================
+  // FINAL GAME COMPLETION
+  // ========================================
+  
+  .game-complete-panel {
+    margin-top: 30px;
+    padding: 24px;
+  
+    background: linear-gradient(
+      180deg,
+      #fffbeb 0%,
+      #ffffff 65%
+    );
+  
+    border: 2px solid #facc15;
+    border-radius: 16px;
+  
+    box-shadow:
+      0 8px 24px rgba(234, 179, 8, 0.15);
+  
+    animation:
+      game-complete-appear 0.5s ease-out;
+  }
+  
+  @keyframes game-complete-appear {
+    from {
+      opacity: 0;
+      transform: translateY(12px);
+    }
+  
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+  
+  // ========================================
+  // WINNER CELEBRATION
+  // ========================================
+  
+  .winner-celebration {
+    text-align: center;
+    padding: 12px 0 24px;
+  }
+  
+  .winner-trophy {
+    font-size: 72px;
+    line-height: 1.3;
+    margin-bottom: 10px;
+  
+    animation:
+      trophy-celebration 1.2s ease-in-out 3;
+  }
+  
+  @keyframes trophy-celebration {
+    0%, 100% {
+      transform: translateY(0) scale(1);
+    }
+  
+    50% {
+      transform: translateY(-8px) scale(1.12);
+    }
+  }
+  
+  .winner-celebration h2 {
+    margin: 12px 0;
+    color: #854d0e;
+    font-size: 32px;
+  }
+  
+  .winner-celebration h3 {
+    color: #334155;
+    margin: 16px 0;
+  }
+  
+  .winner-celebration p {
+    color: #64748b;
+    line-height: 1.6;
+  }
+  
+  .winner-celebration .winner-message {
+    color: #166534;
+    font-size: 24px;
+    font-weight: 800;
+  }
+  
+  // ========================================
+  // WINNING SCORE
+  // ========================================
+  
+  .winning-score {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  
+    width: fit-content;
+    min-width: 140px;
+  
+    margin: 24px auto 0;
+    padding: 18px 28px;
+  
+    background: #fef3c7;
+    border: 1px solid #facc15;
+    border-radius: 14px;
+  }
+  
+  .winning-score span {
+    color: #92400e;
+    font-size: 13px;
+  }
+  
+  .winning-score strong {
+    color: #854d0e;
+    font-size: 44px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  
+  // ========================================
+  // FINAL LEADERBOARD
+  // ========================================
+  
+  .final-leaderboard {
+    margin-top: 20px;
+  }
+  
+  .final-leaderboard h3 {
+    text-align: center;
+    font-size: 21px;
+    margin-bottom: 20px;
+  }
+  
+  .leaderboard-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  
+    padding: 16px;
+    margin-bottom: 12px;
+  
+    background: #f8fafc;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+  }
+  
+  .leaderboard-row.leaderboard-me {
+    background: #eff6ff;
+    border-color: #93c5fd;
+  }
+  
+  .leaderboard-row.leaderboard-winner {
+    background: #fffbeb;
+    border: 2px solid #facc15;
+  
+    box-shadow:
+      0 3px 10px rgba(234, 179, 8, 0.15);
+  }
+  
+  .leaderboard-rank {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  
+    width: 42px;
+    height: 42px;
+  
+    background: #e2e8f0;
+    border-radius: 50%;
+  
+    font-size: 18px;
+    font-weight: 700;
+  
+    flex-shrink: 0;
+  }
+  
+  .leaderboard-winner .leaderboard-rank {
+    background: #fef3c7;
+    font-size: 24px;
+  }
+  
+  .leaderboard-player {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-width: 0;
+    gap: 6px;
+  }
+  
+  .leaderboard-player strong {
+    color: #1e293b;
+    font-size: 16px;
+    overflow-wrap: anywhere;
+  }
+  
+  .leaderboard-player small {
+    color: #a16207;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  
+  .leaderboard-score {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+  
+    flex-shrink: 0;
+  }
+  
+  .leaderboard-score strong {
+    color: #334155;
+    font-size: 26px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+  
+  .leaderboard-score small {
+    color: #64748b;
+    font-size: 11px;
+  }
+  
+  .leaderboard-winner .leaderboard-score strong {
+    color: #166534;
+  }
+  
+  // ========================================
+  // FINAL PERSONAL SCORE
+  // ========================================
+  
+  .final-personal-score {
     display: flex;
     flex-direction: column;
     align-items: center;
     gap: 10px;
   
-    padding: 15px 8px;
-    background: white;
-    border: 1px solid #bbf7d0;
-    border-radius: 10px;
-  }
-  
-  .personal-result span {
-    color: #64748b;
-    font-size: 12px;
-  }
-  
-  .personal-result strong {
-    font-size: 26px;
-    color: #166534;
-  }
-  
-  .prediction-success {
-    padding: 12px;
-    background: #dcfce7;
-    color: #166534;
-    border-radius: 8px;
-    font-weight: 600;
-  }
-  
-  .prediction-missed {
-    padding: 12px;
-    background: #fef3c7;
-    color: #92400e;
-    border-radius: 8px;
-  }
-  
-  // ========================================
-  // SCOREBOARD
-  // ========================================
-  
-  .scoreboard-panel {
     margin-top: 24px;
+    padding: 20px;
+  
+    background: #f0fdf4;
+    border: 1px solid #bbf7d0;
+    border-radius: 12px;
   }
   
-  .scoreboard-wrapper {
-    width: 100%;
-    overflow-x: auto;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-  }
-  
-  .scoreboard {
-    width: 100%;
-    min-width: 420px;
-    border-collapse: collapse;
+  .final-personal-score span {
+    color: #475569;
     font-size: 14px;
   }
   
-  .scoreboard th {
-    padding: 12px 10px;
-    background: #f1f5f9;
-    color: #334155;
-    text-align: center;
-    white-space: nowrap;
-  }
-  
-  .scoreboard td {
-    padding: 12px 10px;
-    border-top: 1px solid #e2e8f0;
-    text-align: center;
-  }
-  
-  .scoreboard th:first-child,
-  .scoreboard td:first-child {
-    text-align: left;
-    overflow-wrap: anywhere;
-  }
-  
-  .scoreboard tbody tr:nth-child(even) {
-    background: #f8fafc;
-  }
-  
-  .scoreboard tbody tr.my-score-row {
-    background: #dcfce7;
+  .final-personal-score strong {
     color: #166534;
-  }
-  
-  .scoreboard td strong {
-    font-size: 16px;
+    font-size: 28px;
   }
   
   // ========================================
-  // TABLET AND MOBILE
+  // RETURN TO LOBBY
+  // ========================================
+  
+  .final-game-actions {
+    display: flex;
+    justify-content: center;
+    margin-top: 24px;
+  }
+  
+  button.return-lobby-button {
+    min-width: 200px;
+    margin: 0;
+    padding: 15px 24px;
+  
+    background: #166534;
+    color: white;
+  
+    font-size: 16px;
+    font-weight: 700;
+  }
+  
+  button.return-lobby-button:hover:not(:disabled) {
+    background: #14532d;
+  }
+  
+  // ========================================
+  // MOBILE — MILESTONE 5
   // ========================================
   
   @media (max-width: 600px) {
   
-    .card-game {
+    .game-utilities {
       padding: 10px;
-      margin: 15px auto;
-    }
-  
-    h1 {
-      font-size: 24px;
-    }
-  
-    .game-panel {
-      padding: 12px;
-    }
-  
-    .actions button {
-      width: 100%;
-      margin-right: 0;
-    }
-  
-    .deal-panel,
-    .round-panel {
-      padding: 10px;
-    }
-  
-    .card-table {
-      min-height: 370px;
-      padding: 14px 5px;
-      gap: 5px;
-      border-width: 5px;
-      border-radius: 26px;
-    }
-  
-    .table-seat {
-      padding: 7px 3px;
-      min-height: 120px;
-      gap: 5px;
-    }
-  
-    .seat-player-name {
-      font-size: 12px;
-    }
-  
-    .seat-player-stats {
-      font-size: 10px;
-      gap: 4px;
-    }
-  
-    .table-card,
-    .empty-card {
-      width: 44px;
-      height: 62px;
-      font-size: 19px;
-    }
-  
-    .table-center strong {
-      font-size: 12px;
-    }
-  
-    .table-center span {
-      font-size: 10px;
-    }
-  
-    .table-trump {
-      font-size: 30px;
-    }
-  
-    .seat-turn-label,
-    .seat-winner-label {
-      font-size: 10px;
-      padding: 3px 6px;
-    }
-  
-    .hand-panel {
-      padding: 14px 8px;
-    }
-  
-    .hand-panel .my-cards {
       gap: 8px;
     }
   
-    .round-panel .playable-card {
-      width: 60px;
-      height: 85px;
-      font-size: 24px;
+    .game-utilities button {
+      flex: 1;
+      padding: 10px;
+      font-size: 12px;
     }
   
-    .personal-result {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
+    .round-progress-panel {
+      padding: 12px;
     }
   
-    .round-complete-panel {
+    .round-progress-header h3 {
+      font-size: 18px;
+    }
+  
+    .round-phase {
+      font-size: 11px;
+      padding: 5px 9px;
+    }
+  
+    .round-progress-text {
+      font-size: 12px;
+    }
+  
+    .sync-message {
+      font-size: 12px;
+      padding: 10px;
+    }
+  
+    .prediction-hand-panel {
+      padding: 14px 8px;
+    }
+  
+    .prediction-hand-panel .my-cards {
+      gap: 8px;
+    }
+  
+    .prediction-hand-panel .playing-card {
+      width: 54px;
+      height: 76px;
+      font-size: 22px;
+    }
+  
+    .prediction-player {
+      padding: 9px;
+      gap: 8px;
+    }
+  
+    .prediction-position {
+      width: 25px;
+      height: 25px;
+      font-size: 12px;
+    }
+  
+    .prediction-player-info strong {
+      font-size: 13px;
+    }
+  
+    .prediction-player-info small {
+      font-size: 10px;
+    }
+  
+    .prediction-value {
+      min-width: 35px;
+      font-size: 11px;
+      padding: 5px 7px;
+    }
+  
+    .prediction-turn-label {
+      font-size: 10px;
+      padding: 4px 7px;
+    }
+  
+    .prediction-input-panel {
+      padding: 15px 10px;
+    }
+  
+    .prediction-input-panel button {
+      width: 100%;
+      min-width: 0;
+    }
+  
+    .next-round-panel {
       padding: 16px;
     }
   
-    .scoreboard {
-      font-size: 12px;
+    .next-round-panel h3 {
+      font-size: 20px;
     }
   
-    .scoreboard th,
-    .scoreboard td {
-      padding: 10px 8px;
+    button.next-round-button {
+      width: 100%;
+      min-width: 0;
+      font-size: 15px;
     }
   
-    .trick-header h3 {
-      font-size: 17px;
+    .game-complete-panel {
+      padding: 14px;
     }
   
-    .trump-indicator {
-      font-size: 12px;
+    .winner-trophy {
+      font-size: 58px;
+    }
+  
+    .winner-celebration h2 {
+      font-size: 26px;
+    }
+  
+    .winner-celebration .winner-message {
+      font-size: 20px;
+    }
+  
+    .winning-score strong {
+      font-size: 36px;
+    }
+  
+    .leaderboard-row {
+      padding: 10px;
+      gap: 9px;
+    }
+  
+    .leaderboard-rank {
+      width: 32px;
+      height: 32px;
+      font-size: 15px;
+    }
+  
+    .leaderboard-winner .leaderboard-rank {
+      font-size: 19px;
+    }
+  
+    .leaderboard-player strong {
+      font-size: 13px;
+    }
+  
+    .leaderboard-player small {
+      font-size: 10px;
+    }
+  
+    .leaderboard-score strong {
+      font-size: 21px;
+    }
+  
+    .final-personal-score strong {
+      font-size: 24px;
+    }
+  
+    button.return-lobby-button {
+      width: 100%;
+      min-width: 0;
     }
   }
+  
+  // ========================================
+  // ACCESSIBILITY — REDUCED MOTION
+  // ========================================
   
   @media (prefers-reduced-motion: reduce) {
   
-    .playing-card,
-    .playable-card,
-    .table-seat,
-    .table-card {
+    .prediction-player.active-prediction {
       animation: none;
+      background: #fef3c7;
+      border-color: #eab308;
+    }
+  
+    .sync-spinner,
+    .winner-trophy,
+    .game-complete-panel {
+      animation: none;
+    }
+  
+    .round-progress-fill,
+    .prediction-player {
       transition: none;
     }
-  }
   
+    .round-panel .playable-card:hover:not(:disabled),
+    .round-panel .playable-card:active:not(:disabled) {
+      transform: none;
+    }
+  }  

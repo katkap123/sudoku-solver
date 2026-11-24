@@ -13,8 +13,13 @@ const db = admin.database();
 
 const REGION = "us-central1";
 const MAX_PLAYERS = 4;
+const MAX_ROUNDS = 13;
 const CODE_LENGTH = 6;
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+
+// --------------------------------------------------
+// COMMON HELPERS
+// --------------------------------------------------
 
 function requireUser(request) {
   const uid = request.auth?.uid;
@@ -91,6 +96,16 @@ function shufflePlayers(ids) {
   return result;
 }
 
+function getRoundPlayerOrder(playerOrder, roundNumber) {
+  const startingIndex =
+    (roundNumber - 1) % MAX_PLAYERS;
+
+  return [
+    ...playerOrder.slice(startingIndex),
+    ...playerOrder.slice(0, startingIndex)
+  ];
+}
+
 function playerIds(room) {
   return Object.keys(room?.players || {});
 }
@@ -117,6 +132,7 @@ exports.createCardRoom = onCall(
   async (request) => {
     try {
       const uid = requireUser(request);
+
       const playerName = validateName(
         request.data?.playerName
       );
@@ -145,9 +161,9 @@ exports.createCardRoom = onCall(
         };
 
         const result = await ref.transaction(
-          (current) => {
+          current => {
             if (current !== null) {
-              return;
+              return undefined;
             }
 
             return room;
@@ -170,6 +186,7 @@ exports.createCardRoom = onCall(
         "resource-exhausted",
         "Unable to generate a unique room code."
       );
+
     } catch (error) {
       normalizeError(error);
     }
@@ -180,103 +197,102 @@ exports.createCardRoom = onCall(
 // JOIN CARD ROOM
 // --------------------------------------------------
 
-
 exports.joinCardRoom = onCall(
   { region: REGION },
   async (request) => {
     try {
       const uid = requireUser(request);
       const code = validateCode(request.data?.code);
+
       const playerName = validateName(
         request.data?.playerName
       );
 
-      
-const roomRef = db.ref(`cardRooms/${code}`);
-const now = Date.now();
+      const roomRef = db.ref(`cardRooms/${code}`);
+      const now = Date.now();
 
-// Read the existing room before starting the transaction.
-// This also lets us return a clear error for missing rooms.
-const initialSnapshot = await roomRef.get();
-const initialRoom = initialSnapshot.val();
+      const initialSnapshot = await roomRef.get();
+      const initialRoom = initialSnapshot.val();
 
-if (!initialRoom) {
-  throw new HttpsError(
-    "not-found",
-    "Room not found."
-  );
-}
-
-if (initialRoom.players?.[uid]) {
-  return {
-    code,
-    roomCode: code,
-    status: initialRoom.status,
-    hostId: initialRoom.hostId,
-    playerCount: Object.keys(initialRoom.players).length
-  };
-}
-
-if (initialRoom.status !== "waiting") {
-  throw new HttpsError(
-    "failed-precondition",
-    "This game has already started."
-  );
-}
-
-if (Object.keys(initialRoom.players || {}).length >= MAX_PLAYERS) {
-  throw new HttpsError(
-    "resource-exhausted",
-    "Room already has four players."
-  );
-}
-
-
-const result = await roomRef.transaction(
-  (room) => {
-    // Firebase may initially provide null before
-    // loading the existing server value.
-    //
-    // Do not return undefined here because that
-    // immediately cancels the transaction.
-    if (room === null) {
-      return room;
-    }
-
-    if (room.players?.[uid]) {
-      return room;
-    }
-
-    if (room.status !== "waiting") {
-      return;
-    }
-
-    const players = room.players || {};
-
-    if (Object.keys(players).length >= MAX_PLAYERS) {
-      return;
-    }
-
-    return {
-      ...room,
-      updatedAt: now,
-      players: {
-        ...players,
-        [uid]: {
-          uid,
-          name: playerName,
-          joinedAt: now,
-          totalScore: 0
-        }
+      if (!initialRoom) {
+        throw new HttpsError(
+          "not-found",
+          "Room not found."
+        );
       }
-    };
-  },
-  undefined,
-  false
-);
 
+      if (initialRoom.players?.[uid]) {
+        return {
+          code,
+          roomCode: code,
+          status: initialRoom.status,
+          hostId: initialRoom.hostId,
+          playerCount:
+            Object.keys(initialRoom.players).length
+        };
+      }
 
-      if (!result.committed) {
+      if (initialRoom.status !== "waiting") {
+        throw new HttpsError(
+          "failed-precondition",
+          "This game has already started."
+        );
+      }
+
+      if (
+        Object.keys(initialRoom.players || {}).length >=
+        MAX_PLAYERS
+      ) {
+        throw new HttpsError(
+          "resource-exhausted",
+          "Room already has four players."
+        );
+      }
+
+      const result = await roomRef.transaction(
+        room => {
+          if (room === null) {
+            return null;
+          }
+
+          if (room.players?.[uid]) {
+            return room;
+          }
+
+          if (room.status !== "waiting") {
+            return undefined;
+          }
+
+          const players = room.players || {};
+
+          if (
+            Object.keys(players).length >= MAX_PLAYERS
+          ) {
+            return undefined;
+          }
+
+          return {
+            ...room,
+            updatedAt: now,
+            players: {
+              ...players,
+              [uid]: {
+                uid,
+                name: playerName,
+                joinedAt: now,
+                totalScore: 0
+              }
+            }
+          };
+        },
+        undefined,
+        false
+      );
+
+      if (
+        !result.committed ||
+        !result.snapshot.exists()
+      ) {
         const snapshot = await roomRef.get();
         const room = snapshot.val();
 
@@ -293,7 +309,8 @@ const result = await roomRef.transaction(
             roomCode: code,
             status: room.status,
             hostId: room.hostId,
-            playerCount: Object.keys(room.players).length
+            playerCount:
+              Object.keys(room.players).length
           };
         }
 
@@ -327,7 +344,8 @@ const result = await roomRef.transaction(
         roomCode: code,
         status: room.status,
         hostId: room.hostId,
-        playerCount: Object.keys(room.players || {}).length
+        playerCount:
+          Object.keys(room.players || {}).length
       };
 
     } catch (error) {
@@ -340,7 +358,6 @@ const result = await roomRef.transaction(
 // START CARD GAME
 // --------------------------------------------------
 
-
 exports.startCardGame = onCall(
   { region: REGION },
   async (request) => {
@@ -350,7 +367,6 @@ exports.startCardGame = onCall(
 
       const roomRef = db.ref(`cardRooms/${code}`);
 
-      // Read current room state.
       const snapshot = await roomRef.get();
       const initialRoom = snapshot.val();
 
@@ -375,7 +391,8 @@ exports.startCardGame = onCall(
         );
       }
 
-      const ids = Object.keys(initialRoom.players || {});
+      const ids =
+        Object.keys(initialRoom.players || {});
 
       if (ids.length !== MAX_PLAYERS) {
         throw new HttpsError(
@@ -387,61 +404,45 @@ exports.startCardGame = onCall(
       const order = shufflePlayers(ids);
       const now = Date.now();
 
-      // Firebase Admin SDK transaction callback can
-      // initially receive null. Retry with a known
-      // initial room value while preserving checks.
-      
-    const result = await roomRef.transaction(
-      (room) => {
-        // If the transaction starts with a local null value,
-        // use the previously fetched room as a candidate.
-        // Firebase will check the server's current version
-        // before committing and retry on a conflict.
-        if (room === null) {
-          room = initialRoom;
-        }
+      const result = await roomRef.transaction(
+        room => {
+          if (room === null) {
+            return null;
+          }
 
-        if (
-          !room ||
-          room.hostId !== uid ||
-          room.status !== "waiting"
-        ) {
-          return;
-        }
+          if (
+            room.hostId !== uid ||
+            room.status !== "waiting"
+          ) {
+            return undefined;
+          }
 
-        const currentIds = Object.keys(room.players || {});
+          const currentIds =
+            Object.keys(room.players || {});
 
-        if (
-          currentIds.length !== MAX_PLAYERS ||
-          currentIds.some(id => !ids.includes(id))
-        ) {
-          return;
-        }
+          if (
+            currentIds.length !== MAX_PLAYERS ||
+            currentIds.some(id => !ids.includes(id))
+          ) {
+            return undefined;
+          }
 
-        console.log("START TRANSACTION CALLBACK", {
-          status: room.status,
-          playerCount: currentIds.length
-        });
+          return {
+            ...room,
+            status: "ready",
+            playerOrder: order,
+            roundNumber: 0,
+            updatedAt: now
+          };
+        },
+        undefined,
+        false
+      );
 
-        return {
-          ...room,
-          status: "ready",
-          playerOrder: order,
-          roundNumber: 0,
-          updatedAt: now
-        };
-      },
-      undefined,
-      false
-    );
-
-      if (!result.committed) {
-        console.error("START GAME TRANSACTION ABORTED", {
-          code,
-          initialStatus: initialRoom.status,
-          initialPlayerCount: ids.length
-        });
-
+      if (
+        !result.committed ||
+        !result.snapshot.exists()
+      ) {
         throw new HttpsError(
           "aborted",
           "Room changed before starting."
@@ -461,7 +462,6 @@ exports.startCardGame = onCall(
   }
 );
 
-
 // --------------------------------------------------
 // LEAVE CARD ROOM
 // --------------------------------------------------
@@ -476,19 +476,26 @@ exports.leaveCardRoom = onCall(
       const ref = db.ref(`cardRooms/${code}`);
       const now = Date.now();
 
+      let playerRemoved = false;
+
       const result = await ref.transaction(
-        (room) => {
-          if (!room || !room.players?.[uid]) {
-            return;
+        room => {
+          playerRemoved = false;
+
+          if (room === null) {
+            return null;
           }
 
-          // Milestone 2 supports leaving the lobby,
-          // not abandoning an active card game.
+          if (!room.players?.[uid]) {
+            return undefined;
+          }
+
           if (room.status !== "waiting") {
-            return;
+            return undefined;
           }
 
           delete room.players[uid];
+          playerRemoved = true;
 
           const remaining = playerIds(room);
 
@@ -497,8 +504,6 @@ exports.leaveCardRoom = onCall(
           }
 
           if (room.hostId === uid) {
-            // Transfer ownership to the earliest
-            // remaining player.
             remaining.sort(
               (a, b) =>
                 (room.players[a].joinedAt || 0) -
@@ -517,7 +522,7 @@ exports.leaveCardRoom = onCall(
         false
       );
 
-      if (!result.committed) {
+      if (!result.committed || !playerRemoved) {
         throw new HttpsError(
           "failed-precondition",
           "Cannot leave this room. It may already be active."
@@ -529,19 +534,19 @@ exports.leaveCardRoom = onCall(
         roomCode: code,
         left: true
       };
+
     } catch (error) {
       normalizeError(error);
     }
   }
 );
 
-
-/**
- * MILESTONE 3
- * Private dealing and sequential predictions.
- */
+// --------------------------------------------------
+// CARD HELPERS
+// --------------------------------------------------
 
 const CARD_SUITS = ["H", "S", "D", "C"];
+
 const CARD_RANKS = [
   "2", "3", "4", "5", "6", "7",
   "8", "9", "10", "J", "Q", "K", "A"
@@ -570,7 +575,6 @@ function shuffleDeck() {
   return deck;
 }
 
-
 function isValidCard(card) {
   return (
     card !== null &&
@@ -595,10 +599,12 @@ function determineTrickWinner(plays) {
   function strength(card) {
     const rank = cardRankValue(card);
 
+    // Hearts are always trump.
     if (card.suit === "H") {
       return 200 + rank;
     }
 
+    // Lead suit beats other non-trump suits.
     if (card.suit === leadSuit) {
       return 100 + rank;
     }
@@ -606,13 +612,30 @@ function determineTrickWinner(plays) {
     return rank;
   }
 
-  return plays.reduce((best, play) =>
-    strength(play.card) > strength(best.card)
-      ? play
-      : best
+  return plays.reduce(
+    (best, play) =>
+      strength(play.card) > strength(best.card)
+        ? play
+        : best
   ).uid;
 }
 
+function determineGameWinners(playerOrder, totalScores) {
+  const highestScore = Math.max(
+    ...playerOrder.map(
+      uid => totalScores[uid] || 0
+    )
+  );
+
+  const winnerIds = playerOrder.filter(
+    uid => (totalScores[uid] || 0) === highestScore
+  );
+
+  return {
+    highestScore,
+    winnerIds
+  };
+}
 
 function validatePrediction(value, roundNumber) {
   if (
@@ -628,6 +651,25 @@ function validatePrediction(value, roundNumber) {
 
   return value;
 }
+
+function validateRoundNumber(value) {
+  if (
+    !Number.isInteger(value) ||
+    value < 1 ||
+    value > MAX_ROUNDS
+  ) {
+    throw new HttpsError(
+      "invalid-argument",
+      "Round number must be between 1 and 13."
+    );
+  }
+
+  return value;
+}
+
+// --------------------------------------------------
+// AUTHORITATIVE GAME STATE
+// --------------------------------------------------
 
 async function getAuthoritativeGameState(code) {
   const snapshot = await db
@@ -646,6 +688,57 @@ async function getAuthoritativeGameState(code) {
   return state;
 }
 
+async function updateGameState(code, updater) {
+  const stateRef = db.ref(`cardGameState/${code}`);
+
+  let rejection = null;
+
+  const result = await stateRef.transaction(
+    state => {
+      rejection = null;
+
+      if (state === null) {
+        return null;
+      }
+
+      try {
+        return updater(state);
+
+      } catch (error) {
+        rejection = error;
+        return undefined;
+      }
+    },
+    undefined,
+    false
+  );
+
+  if (!result.committed) {
+    if (rejection) {
+      throw rejection;
+    }
+
+    throw new HttpsError(
+      "aborted",
+      "Game state changed. Please retry."
+    );
+  }
+
+  const state = result.snapshot.val();
+
+  if (!state) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Game state is unavailable."
+    );
+  }
+
+  return state;
+}
+
+// --------------------------------------------------
+// GAME STATE DIAGNOSTIC
+// --------------------------------------------------
 
 exports.checkCardGameState = onCall(
   { region: REGION },
@@ -688,17 +781,47 @@ exports.checkCardGameState = onCall(
 
       return {
         code,
+
         roomStatus: room.status,
         roomPhase: room.phase,
         roomRoundNumber: room.roundNumber,
+
         statePhase: state.phase,
         stateRoundNumber: state.roundNumber,
+
         playerCount: order.length,
         handCounts,
+
+        startingPlayerId:
+          state.startingPlayerId || null,
+
+        currentPlayerId:
+          state.currentPlayerId || null,
+
+        playerOrder: order,
+
+        roundPlayerOrder:
+          state.roundPlayerOrder ||
+          getRoundPlayerOrder(
+            order,
+            state.roundNumber
+          ),
+
+        trickNumber: state.trickNumber || 1,
+
+        completedTrickCount:
+          (state.completedTricks || []).length,
+
+        totalScores: state.totalScores || {},
+
+        roomRevision: room.revision || 0,
         revision: state.revision || 0,
+
         consistent:
           room.roundNumber === state.roundNumber &&
-          room.phase === state.phase
+          room.phase === state.phase &&
+          (room.revision || 0) ===
+            (state.revision || 0)
       };
 
     } catch (error) {
@@ -708,7 +831,12 @@ exports.checkCardGameState = onCall(
 );
 
 // --------------------------------------------------
-// DEAL CARD ROUND
+// DEAL CARD ROUND — ROUNDS 1 TO 13
+// --------------------------------------------------
+
+
+// --------------------------------------------------
+// DEAL CARD ROUND — TRANSACTIONAL AND RECOVERABLE
 // --------------------------------------------------
 
 exports.dealCardRound = onCall(
@@ -717,44 +845,63 @@ exports.dealCardRound = onCall(
     try {
       const uid = requireUser(request);
       const code = validateCode(request.data?.code);
-      const roomRef = db.ref(`cardRooms/${code}`);
 
-      const initialSnapshot = await roomRef.get();
-      const initialRoom = initialSnapshot.val();
+      const requestedRound = validateRoundNumber(
+        request.data?.roundNumber
+      );
 
-      if (!initialRoom) {
+      const roomSnapshot = await db
+        .ref(`cardRooms/${code}`)
+        .get();
+
+      const room = roomSnapshot.val();
+
+      if (!room) {
         throw new HttpsError(
           "not-found",
           "Room not found."
         );
       }
 
-      if (initialRoom.hostId !== uid) {
+      if (room.hostId !== uid) {
         throw new HttpsError(
           "permission-denied",
           "Only the host can deal cards."
         );
       }
 
-      // Milestone 3 starts Round 1 only.
-      // Later rounds will be unlocked after scoring.
-      if (
-        initialRoom.status !== "ready" ||
-        initialRoom.roundNumber !== 0
-      ) {
+      if (room.status === "finished") {
         throw new HttpsError(
           "failed-precondition",
-          "Round 1 cannot be dealt in the current state."
+          "The game is already complete."
         );
       }
 
-      const order = initialRoom.playerOrder;
+      // The old dealing mechanism is no longer used.
+      if (room.status === "dealing") {
+        throw new HttpsError(
+          "failed-precondition",
+          "This room uses an older interrupted deal. Start a new room."
+        );
+      }
+
+      if (
+        room.status !== "ready" &&
+        room.status !== "playing"
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "The room is not ready for dealing."
+        );
+      }
+
+      const order = room.playerOrder;
 
       if (
         !Array.isArray(order) ||
         order.length !== MAX_PLAYERS ||
         new Set(order).size !== MAX_PLAYERS ||
-        order.some(id => !initialRoom.players?.[id])
+        order.some(id => !room.players?.[id])
       ) {
         throw new HttpsError(
           "failed-precondition",
@@ -762,183 +909,308 @@ exports.dealCardRound = onCall(
         );
       }
 
-      const dealToken = crypto.randomUUID();
+      const publicRound = room.roundNumber || 0;
+
+      if (
+        requestedRound < publicRound ||
+        requestedRound > publicRound + 1
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "The requested round is no longer valid."
+        );
+      }
+
+      const stateRef = db.ref(
+        `cardGameState/${code}`
+      );
+
+      const roundPlayerOrder = getRoundPlayerOrder(
+        order,
+        requestedRound
+      );
+
+      const startingPlayerId =
+        roundPlayerOrder[0];
+
+      // Generate the deck outside the transaction.
+      // Firebase may execute the transaction callback
+      // multiple times.
+      const deck = shuffleDeck();
+
+      const hands = {};
+
+      for (const playerUid of order) {
+        hands[playerUid] = [];
+      }
+
+      let deckIndex = 0;
+
+      for (
+        let cardNumber = 0;
+        cardNumber < requestedRound;
+        cardNumber++
+      ) {
+        for (const playerUid of roundPlayerOrder) {
+          hands[playerUid].push(
+            deck[deckIndex++]
+          );
+        }
+      }
+
       const now = Date.now();
 
-      // Lock the room before dealing.
-      const lockResult = await roomRef.transaction(
-        room => {
-          // Use the previously fetched room only when Firebase
-          // initially invokes the transaction with null.
-          if (room === null) {
-            room = initialRoom;
-          }
+      let rejection = null;
 
-          if (!room) {
-            return;
-          }
-          if (
-            !room ||
-            room.hostId !== uid ||
-            room.status !== "ready" ||
-            room.roundNumber !== 0
-          ) {
-            return;
-          }
+      // The authoritative transaction decides whether
+      // to create a round or recover an existing round.
+      const result = await stateRef.transaction(
+        state => {
+          rejection = null;
 
-          if (
-            JSON.stringify(room.playerOrder) !==
-            JSON.stringify(order)
-          ) {
-            return;
+          try {
+            let totalScores = {};
+            let previousRevision = -1;
+
+            if (state === null) {
+
+              // Only Round 1 can initialize game state.
+              if (
+                requestedRound !== 1 ||
+                room.status !== "ready" ||
+                publicRound !== 0
+              ) {
+                // Returning null allows Firebase to retry
+                // if the initial local state was missing.
+                return null;
+              }
+
+              for (const playerUid of order) {
+                totalScores[playerUid] = 0;
+              }
+
+            } else {
+
+              // Ensure the seating order is unchanged.
+              if (
+                JSON.stringify(state.playerOrder) !==
+                JSON.stringify(order)
+              ) {
+                throw new HttpsError(
+                  "failed-precondition",
+                  "The player order has changed."
+                );
+              }
+
+              if (state.phase === "game-complete") {
+                throw new HttpsError(
+                  "failed-precondition",
+                  "All 13 rounds are complete."
+                );
+              }
+
+              // Idempotent retry.
+              // Return the existing round without
+              // generating or replacing its cards.
+              if (
+                state.roundNumber === requestedRound
+              ) {
+                return state;
+              }
+
+              // Reject old or skipped rounds.
+              if (
+                requestedRound !==
+                state.roundNumber + 1
+              ) {
+                throw new HttpsError(
+                  "failed-precondition",
+                  "The requested round is no longer valid."
+                );
+              }
+
+              if (
+                state.phase !== "round-complete"
+              ) {
+                throw new HttpsError(
+                  "failed-precondition",
+                  "The previous round is not complete."
+                );
+              }
+
+              // The previous round must be published
+              // before creating another round.
+              if (
+                publicRound !== state.roundNumber ||
+                room.phase !== "round-complete" ||
+                (room.revision || 0) !==
+                  (state.revision || 0)
+              ) {
+                throw new HttpsError(
+                  "failed-precondition",
+                  "The previous round is still synchronizing."
+                );
+              }
+
+              const remainingCards = order.reduce(
+                (sum, playerUid) =>
+                  sum +
+                  (state.hands?.[playerUid] || [])
+                    .length,
+                0
+              );
+
+              if (remainingCards !== 0) {
+                throw new HttpsError(
+                  "failed-precondition",
+                  "The previous round has unplayed cards."
+                );
+              }
+
+              totalScores = {
+                ...(state.totalScores || {})
+              };
+
+              previousRevision =
+                state.revision || 0;
+            }
+
+            // Create the next authoritative round.
+            return {
+              roundNumber: requestedRound,
+
+              phase: "predicting",
+
+              playerOrder: order,
+              roundPlayerOrder,
+
+              startingPlayerId,
+              currentPlayerId: startingPlayerId,
+
+              hands,
+
+              predictions: {},
+              playedCards: {},
+
+              trickNumber: 1,
+
+              currentTrick: {
+                trickNumber: 1,
+                plays: []
+              },
+
+              lastTrick: null,
+              completedTricks: [],
+
+              tricksWon: {},
+              roundScores: {},
+
+              totalScores,
+
+              revision: previousRevision + 1,
+
+              updatedAt: now
+            };
+
+          } catch (error) {
+            rejection = error;
+            return undefined;
           }
-
-          room.status = "dealing";
-          room.dealToken = dealToken;
-          room.dealStartedAt = now;
-          room.updatedAt = now;
-
-          return room;
         },
         undefined,
         false
       );
 
-      if (!lockResult.committed) {
+      if (!result.committed) {
+        if (rejection) {
+          throw rejection;
+        }
+
         throw new HttpsError(
           "aborted",
-          "Room changed before dealing. Please retry."
+          "Unable to deal the round. Please retry."
         );
       }
 
-      try {
-        const deck = shuffleDeck();
-        const updates = {};
+      const state = result.snapshot.val();
 
-        const hands = {};
-
-        for (let i = 0; i < MAX_PLAYERS; i++) {
-          const playerUid = order[i];
-          hands[playerUid] = [deck[i]];
-        }
-
-        updates[`cardGameState/${code}`] = {
-          roundNumber: 1,
-          phase: "predicting",
-          playerOrder: order,
-          startingPlayerId: order[0],
-          currentPlayerId: order[0],
-          hands,
-          predictions: {},
-          currentTrick: {
-            plays: []
-          },
-          completedTricks: [],
-          tricksWon: {},
-          roundScores: {},
-          revision: 0,
-          updatedAt: Date.now()
-        };
-
-        // Round 1: one card per player.
-        // Each hand is stored at a private path.
-        for (let i = 0; i < MAX_PLAYERS; i++) {
-          const playerUid = order[i];
-
-          updates[
-            `cardPrivateHands/${code}/${playerUid}`
-          ] = {
-            roundNumber: 1,
-            cards: [deck[i]]
-          };
-        }
-
-        // Public room metadata contains no card values.
-        updates[`cardRooms/${code}/status`] =
-          "playing";
-
-        updates[`cardRooms/${code}/phase`] =
-          "predicting";
-
-        updates[`cardRooms/${code}/roundNumber`] = 1;
-
-        updates[`cardRooms/${code}/startingPlayerId`] =
-          order[0];
-
-        updates[`cardRooms/${code}/currentPlayerId`] =
-          order[0];
-
-        updates[`cardRooms/${code}/predictions`] = null;
-        updates[`cardRooms/${code}/tricksWon`] = null;
-        updates[`cardRooms/${code}/dealToken`] = null;
-        updates[`cardRooms/${code}/dealStartedAt`] = null;
-        updates[`cardRooms/${code}/updatedAt`] =
-          Date.now();
-
-        updates[`cardRooms/${code}/revision`] = 0;
-        // One atomic database update publishes
-        // all four hands and the public phase.
-        await db.ref().update(updates);
-
-        return {
-          code,
-          roundNumber: 1,
-          phase: "predicting",
-          currentPlayerId: order[0]
-        };
-
-      } catch (dealError) {
-        // Restore the ready state if the write fails.
-        // A process crash may still leave "dealing";
-        // see the recovery note below.
-        await roomRef.transaction(
-          room => {
-            if (
-              room?.status === "dealing" &&
-              room.dealToken === dealToken
-            ) {
-              room.status = "ready";
-              delete room.dealToken;
-              delete room.dealStartedAt;
-              room.updatedAt = Date.now();
-              return room;
-            }
-            return;
-          },
-          undefined,
-          false
-        ).catch(err => {
-          console.error("Deal rollback failed:", err);
-        });
-
-        throw dealError;
+      if (!state) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Authoritative game state is unavailable."
+        );
       }
+
+      if (
+        state.roundNumber !== requestedRound
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "The round has changed."
+        );
+      }
+
+      // Synchronize the committed state, not the
+      // locally generated candidate hands.
+      await syncGameProjections(code, state);
+
+      return {
+        code,
+
+        roundNumber: state.roundNumber,
+
+        phase: state.phase,
+
+        currentPlayerId:
+          state.currentPlayerId || null,
+
+        revision: state.revision
+      };
+
     } catch (error) {
       normalizeError(error);
     }
   }
 );
 
+// --------------------------------------------------
+// SYNCHRONIZE PRIVATE PLAYER HAND
+// --------------------------------------------------
+
 
 async function syncPrivateHand(code, state, uid) {
+  if (!state.playerOrder?.includes(uid)) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Invalid private hand owner."
+    );
+  }
+
   const handRef = db.ref(
     `cardPrivateHands/${code}/${uid}`
   );
 
   const cards = state.hands?.[uid] || [];
+
   const revision = state.revision || 0;
 
   const result = await handRef.transaction(
     currentHand => {
+
       if (currentHand) {
+
+        // Never overwrite a newer round.
         if (
-          currentHand.roundNumber > state.roundNumber
+          currentHand.roundNumber >
+          state.roundNumber
         ) {
           return currentHand;
         }
 
+        // Never overwrite a newer revision.
         if (
-          currentHand.roundNumber === state.roundNumber &&
+          currentHand.roundNumber ===
+            state.roundNumber &&
           (currentHand.revision || 0) > revision
         ) {
           return currentHand;
@@ -947,8 +1219,11 @@ async function syncPrivateHand(code, state, uid) {
 
       return {
         roundNumber: state.roundNumber,
+
         cards,
+
         cardCount: cards.length,
+
         revision
       };
     },
@@ -956,7 +1231,10 @@ async function syncPrivateHand(code, state, uid) {
     false
   );
 
-  if (!result.committed) {
+  if (
+    !result.committed ||
+    !result.snapshot.exists()
+  ) {
     throw new HttpsError(
       "aborted",
       "Unable to synchronize private hand."
@@ -965,7 +1243,234 @@ async function syncPrivateHand(code, state, uid) {
 }
 
 // --------------------------------------------------
+// SYNCHRONIZE PUBLIC ROOM
+// --------------------------------------------------
+
+
+
+async function syncPublicRoom(code, state) {
+  const roomRef = db.ref(
+    `cardRooms/${code}`
+  );
+
+  const result = await roomRef.transaction(
+    room => {
+
+      if (room === null) {
+        return null;
+      }
+
+      const roomRound =
+        room.roundNumber || 0;
+
+      const stateRound =
+        state.roundNumber;
+
+      const roomRevision =
+        room.revision || 0;
+
+      const stateRevision =
+        state.revision || 0;
+
+      // Ignore older round projections.
+      if (roomRound > stateRound) {
+        return room;
+      }
+
+      // Ignore older revisions within the same round.
+      if (
+        roomRound === stateRound &&
+        roomRevision > stateRevision
+      ) {
+        return room;
+      }
+
+      // Never skip an unpublished round.
+      if (stateRound > roomRound + 1) {
+        return undefined;
+      }
+
+      if (
+        JSON.stringify(room.playerOrder) !==
+        JSON.stringify(state.playerOrder)
+      ) {
+        return undefined;
+      }
+
+      // Protect the lobby and legacy dealing states.
+      if (
+        room.status === "waiting" ||
+        room.status === "dealing"
+      ) {
+        return undefined;
+      }
+
+      // Never reopen a finished game.
+      if (
+        room.status === "finished" &&
+        state.phase !== "game-complete"
+      ) {
+        return room;
+      }
+
+      // Validate a transition to a new round.
+      if (stateRound > roomRound) {
+
+        const firstRound =
+          roomRound === 0 &&
+          room.status === "ready";
+
+        const nextRound =
+          roomRound >= 1 &&
+          room.status === "playing" &&
+          room.phase === "round-complete";
+
+        if (!firstRound && !nextRound) {
+          return undefined;
+        }
+      }
+
+      const players = {
+        ...room.players
+      };
+
+      for (const playerUid of state.playerOrder) {
+
+        if (!players[playerUid]) {
+          return undefined;
+        }
+
+        if (
+          Number.isInteger(
+            state.totalScores?.[playerUid]
+          )
+        ) {
+          players[playerUid] = {
+            ...players[playerUid],
+
+            totalScore:
+              state.totalScores[playerUid]
+          };
+        }
+      }
+
+      return {
+        ...room,
+
+        status:
+          state.phase === "game-complete"
+            ? "finished"
+            : "playing",
+
+        phase: state.phase,
+
+        roundNumber: stateRound,
+
+        players,
+
+        roundPlayerOrder:
+          state.roundPlayerOrder ||
+          getRoundPlayerOrder(
+            state.playerOrder,
+            stateRound
+          ),
+
+        startingPlayerId:
+          state.startingPlayerId,
+
+        currentPlayerId:
+          state.currentPlayerId || null,
+
+        trickNumber:
+          state.trickNumber || 1,
+
+        predictions:
+          state.predictions || null,
+
+        tricksWon:
+          state.tricksWon || null,
+
+        currentTrick:
+          state.currentTrick || null,
+
+        lastTrick:
+          state.lastTrick || null,
+
+        roundScores:
+          state.roundScores || null,
+
+        winnerIds:
+          state.winnerIds || null,
+
+        highestScore:
+          state.highestScore ?? null,
+
+        finishedAt:
+          state.finishedAt || null,
+
+        // Remove obsolete dealing metadata.
+        dealToken: null,
+        dealStartedAt: null,
+
+        revision: stateRevision,
+
+        updatedAt: Date.now()
+      };
+    },
+    undefined,
+    false
+  );
+
+  if (
+    !result.committed ||
+    !result.snapshot.exists()
+  ) {
+    throw new HttpsError(
+      "aborted",
+      "Unable to synchronize public room."
+    );
+  }
+}
+
+
+// --------------------------------------------------
+// SYNCHRONIZE ALL GAME PROJECTIONS
+// --------------------------------------------------
+
+async function syncGameProjections(code, state) {
+
+  const order = state.playerOrder || [];
+
+  if (
+    order.length !== MAX_PLAYERS ||
+    new Set(order).size !== MAX_PLAYERS
+  ) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Invalid player order."
+    );
+  }
+
+  // Synchronize all four private hands in parallel.
+  await Promise.all(
+    order.map(
+      uid => syncPrivateHand(code, state, uid)
+    )
+  );
+
+  // Publish the public room after private hands
+  // have been synchronized.
+  await syncPublicRoom(code, state);
+}
+
+
+// --------------------------------------------------
 // SUBMIT CARD PREDICTION
+// --------------------------------------------------
+
+
+// --------------------------------------------------
+// SUBMIT CARD PREDICTION — ROUNDS 1 TO 13
 // --------------------------------------------------
 
 exports.submitCardPrediction = onCall(
@@ -976,243 +1481,15 @@ exports.submitCardPrediction = onCall(
       const code = validateCode(request.data?.code);
       const prediction = request.data?.prediction;
 
-      const roomRef = db.ref(`cardRooms/${code}`);
-
-      const initialSnapshot = await roomRef.get();
-      const initialRoom = initialSnapshot.val();
-
-      if (!initialRoom) {
-        throw new HttpsError(
-          "not-found",
-          "Room not found."
-        );
-      }
-
-      if (!initialRoom.players?.[uid]) {
-        throw new HttpsError(
-          "permission-denied",
-          "You are not a player in this room."
-        );
-      }
+      // Require the client to identify the round.
+      const expectedRound = validateRoundNumber(
+        request.data?.roundNumber
+      );
 
       validatePrediction(
         prediction,
-        initialRoom.roundNumber
+        expectedRound
       );
-
-      const result = await roomRef.transaction(
-        room => {
-
-    // Firebase may initially provide null to the
-    // transaction callback even when the room exists.
-    // Use the previously fetched room as the candidate.
-    if (room === null) {
-        room = initialRoom;
-      }
-
-      if (!room) {
-        return;
-      }
-
-      console.log("PREDICTION DEBUG", {
-        roomExists: room !== null,
-        status: room?.status,
-        phase: room?.phase,
-        roundNumber: room?.roundNumber,
-        currentPlayerId: room?.currentPlayerId,
-        requestingPlayerId: uid,
-        prediction: prediction,
-        playerOrder: room?.playerOrder,
-        existingPredictions: room?.predictions
-      });
-
-          if (
-            !room ||
-            room.status !== "playing" ||
-            room.phase !== "predicting"
-          ) {
-            return;
-          }
-
-          const order = room.playerOrder || [];
-          const roundNumber = room.roundNumber;
-
-          if (
-            !Array.isArray(order) ||
-            order.length !== MAX_PLAYERS ||
-            !Number.isInteger(roundNumber) ||
-            roundNumber < 1 ||
-            roundNumber > 13 ||
-            !Number.isInteger(prediction) ||
-            prediction < 0 ||
-            prediction > roundNumber
-          ) {
-            return;
-          }
-
-          if (!room.players?.[uid]) {
-            return;
-          }
-
-          if (room.currentPlayerId !== uid) {
-            return;
-          }
-
-          room.predictions = room.predictions || {};
-
-          if (
-            Object.prototype.hasOwnProperty.call(
-              room.predictions,
-              uid
-            )
-          ) {
-            return;
-          }
-
-          const index = order.indexOf(uid);
-
-          if (index < 0) {
-            return;
-          }
-
-          // Fourth player's bid must not make
-          // the sum equal the round number.
-          if (index === MAX_PLAYERS - 1) {
-            let previousTotal = 0;
-
-            for (let i = 0; i < index; i++) {
-              const previous =
-                room.predictions[order[i]];
-
-              if (!Number.isInteger(previous)) {
-                return;
-              }
-
-              previousTotal += previous;
-            }
-
-            if (
-              previousTotal + prediction ===
-              roundNumber
-            ) {
-              return;
-            }
-          }
-
-          room.predictions[uid] = prediction;
-
-          if (index < MAX_PLAYERS - 1) {
-            room.currentPlayerId = order[index + 1];
-          } else {
-            // All four predictions are complete.
-            // Milestone 4 will enable card plays.
-            room.phase = "playing";
-            room.currentPlayerId = order[0];
-          }
-
-          room.updatedAt = Date.now();
-
-          return room;
-        },
-        undefined,
-        false
-      );
-
-      if (!result.committed) {
-        throw new HttpsError(
-          "failed-precondition",
-          "Prediction rejected. Check your turn, " +
-          "prediction range, or the fourth-player rule."
-        );
-      }
-
-      const room = result.snapshot.val();
-
-      return {
-        code,
-        roundNumber: room.roundNumber,
-        prediction,
-        phase: room.phase,
-        currentPlayerId: room.currentPlayerId
-      };
-    } catch (error) {
-      normalizeError(error);
-    }
-  }
-);
-
-
-async function syncPublicRoom(code, state) {
-  const roomRef = db.ref(`cardRooms/${code}`);
-
-  const result = await roomRef.transaction(
-    room => {
-      if (room === null) {
-        return null;
-      }
-
-      if (room.roundNumber !== state.roundNumber) {
-        return undefined;
-      }
-
-      const roomRevision = room.revision || 0;
-      const stateRevision = state.revision || 0;
-
-      // Never overwrite a newer public state.
-      if (roomRevision > stateRevision) {
-        return room;
-      }
-
-      const players = { ...room.players };
-
-      for (const playerUid of state.playerOrder) {
-        if (
-          players[playerUid] &&
-          Number.isInteger(state.totalScores?.[playerUid])
-        ) {
-          players[playerUid] = {
-            ...players[playerUid],
-            totalScore: state.totalScores[playerUid]
-          };
-        }
-      }
-
-      return {
-        ...room,
-        phase: state.phase,
-        players,
-        trickNumber: state.trickNumber || 1,
-        currentPlayerId: state.currentPlayerId || null,
-        startingPlayerId: state.startingPlayerId,
-        predictions: state.predictions || null,
-        tricksWon: state.tricksWon || null,
-        currentTrick: state.currentTrick || null,
-        lastTrick: state.lastTrick || null,
-        roundScores: state.roundScores || null,
-        revision: stateRevision,
-        updatedAt: Date.now()
-      };
-    },
-    undefined,
-    false
-  );
-
-  if (!result.committed || !result.snapshot.exists()) {
-    throw new HttpsError(
-      "aborted",
-      "Unable to synchronize public room."
-    );
-  }
-}
-
-
-exports.submitCardPrediction = onCall(
-  { region: REGION },
-  async (request) => {
-    try {
-      const uid = requireUser(request);
-      const code = validateCode(request.data?.code);
-      const prediction = request.data?.prediction;
 
       const initialState =
         await getAuthoritativeGameState(code);
@@ -1224,21 +1501,23 @@ exports.submitCardPrediction = onCall(
         );
       }
 
-      validatePrediction(
-        prediction,
-        initialState.roundNumber
-      );
-
-      const expectedRound = initialState.roundNumber;
+      if (initialState.roundNumber !== expectedRound) {
+        throw new HttpsError(
+          "failed-precondition",
+          "The round has changed. Refresh your game state."
+        );
+      }
 
       const state = await updateGameState(
         code,
         state => {
-          const order = state.playerOrder || [];
+          const seatingOrder =
+            state.playerOrder || [];
 
           if (
-            order.length !== MAX_PLAYERS ||
-            !order.includes(uid)
+            seatingOrder.length !== MAX_PLAYERS ||
+            new Set(seatingOrder).size !== MAX_PLAYERS ||
+            !seatingOrder.includes(uid)
           ) {
             throw new HttpsError(
               "permission-denied",
@@ -1246,6 +1525,7 @@ exports.submitCardPrediction = onCall(
             );
           }
 
+          // Reject delayed requests from older rounds.
           if (state.roundNumber !== expectedRound) {
             throw new HttpsError(
               "failed-precondition",
@@ -1258,12 +1538,25 @@ exports.submitCardPrediction = onCall(
             state.roundNumber
           );
 
+          // Calculate the rotating prediction order.
+          const order = getRoundPlayerOrder(
+            seatingOrder,
+            state.roundNumber
+          );
+
+          if (order[0] !== state.startingPlayerId) {
+            throw new HttpsError(
+              "failed-precondition",
+              "Invalid starting player."
+            );
+          }
+
+          state.roundPlayerOrder = order;
+
           state.predictions =
             state.predictions || {};
 
-          // Allow a retry of an already accepted prediction.
-          // This also allows synchronization to recover
-          // if the previous public-room update failed.
+          // Allow safe retries of accepted predictions.
           if (
             Object.prototype.hasOwnProperty.call(
               state.predictions,
@@ -1296,43 +1589,65 @@ exports.submitCardPrediction = onCall(
 
           const index = order.indexOf(uid);
 
-          // Fourth-player prediction restriction.
-          if (index === MAX_PLAYERS - 1) {
-            let previousTotal = 0;
-
-            for (let i = 0; i < index; i++) {
-              const previous =
-                state.predictions[order[i]];
-
-              if (!Number.isInteger(previous)) {
-                throw new HttpsError(
-                  "failed-precondition",
-                  "Previous predictions are incomplete."
-                );
-              }
-
-              previousTotal += previous;
-            }
-
-            if (
-              previousTotal + prediction ===
-              state.roundNumber
-            ) {
-              throw new HttpsError(
-                "failed-precondition",
-                "Total predictions cannot equal the round number."
-              );
-            }
+          if (index < 0) {
+            throw new HttpsError(
+              "permission-denied",
+              "Invalid prediction order."
+            );
           }
 
+          // Ensure all previous players have predicted.
+          let previousTotal = 0;
+
+          for (let i = 0; i < index; i++) {
+            const previous =
+              state.predictions[order[i]];
+
+            if (!Number.isInteger(previous)) {
+              throw new HttpsError(
+                "failed-precondition",
+                "Previous predictions are incomplete."
+              );
+            }
+
+            previousTotal += previous;
+          }
+
+          // The last bidder cannot make the total
+          // predictions equal the round number.
+          const isLastBidder =
+            index === MAX_PLAYERS - 1;
+
+          if (
+            isLastBidder &&
+            previousTotal + prediction ===
+              state.roundNumber
+          ) {
+            throw new HttpsError(
+              "failed-precondition",
+              "Total predictions cannot equal the round number."
+            );
+          }
+
+          // Save the accepted prediction.
           state.predictions[uid] = prediction;
 
-          if (index < MAX_PLAYERS - 1) {
-            state.currentPlayerId = order[index + 1];
+          if (!isLastBidder) {
+
+            // Advance to the next bidder.
+            state.currentPlayerId =
+              order[index + 1];
+
           } else {
+
+            // All four predictions are complete.
             state.phase = "playing";
+
+            // The starting player leads the first trick.
             state.currentPlayerId =
               state.startingPlayerId;
+
+            state.trickNumber = 1;
           }
 
           state.revision =
@@ -1343,16 +1658,18 @@ exports.submitCardPrediction = onCall(
           return state;
         }
       );
-
-      // Publish the committed authoritative state.
-      await syncPublicRoom(code, state);
+      // Synchronize private hands and public state.
+      await syncGameProjections(code, state);
 
       return {
         code,
         roundNumber: state.roundNumber,
         prediction,
         phase: state.phase,
-        currentPlayerId: state.currentPlayerId,
+
+        currentPlayerId:
+          state.currentPlayerId || null,
+
         revision: state.revision
       };
 
@@ -1362,53 +1679,14 @@ exports.submitCardPrediction = onCall(
   }
 );
 
-async function updateGameState(code, updater) {
-  const stateRef = db.ref(`cardGameState/${code}`);
+// --------------------------------------------------
+// PLAY CARD
+// --------------------------------------------------
 
-  let rejection = null;
 
-  const result = await stateRef.transaction(
-    state => {
-      rejection = null;
-
-      if (state === null) {
-        return null;
-      }
-
-      try {
-        return updater(state);
-      } catch (error) {
-        rejection = error;
-        return undefined;
-      }
-    },
-    undefined,
-    false
-  );
-
-  if (!result.committed) {
-    if (rejection) {
-      throw rejection;
-    }
-
-    throw new HttpsError(
-      "aborted",
-      "Game state changed. Please retry."
-    );
-  }
-
-  const state = result.snapshot.val();
-
-  if (!state) {
-    throw new HttpsError(
-      "failed-precondition",
-      "Game state is unavailable."
-    );
-  }
-
-  return state;
-}
-
+// --------------------------------------------------
+// PLAY CARD — ROUNDS 1 TO 13
+// --------------------------------------------------
 
 exports.playCard = onCall(
   { region: REGION },
@@ -1416,7 +1694,13 @@ exports.playCard = onCall(
     try {
       const uid = requireUser(request);
       const code = validateCode(request.data?.code);
+
       const requestedCard = request.data?.card;
+
+      // Require the client to identify the round.
+      const expectedRound = validateRoundNumber(
+        request.data?.roundNumber
+      );
 
       if (!isValidCard(requestedCard)) {
         throw new HttpsError(
@@ -1425,7 +1709,7 @@ exports.playCard = onCall(
         );
       }
 
-      // Only accept the expected card properties.
+      // Accept only the expected card properties.
       const card = {
         suit: requestedCard.suit,
         rank: requestedCard.rank
@@ -1443,15 +1727,23 @@ exports.playCard = onCall(
         );
       }
 
-      const expectedRound = initialState.roundNumber;
+      // Reject requests belonging to another round.
+      if (initialState.roundNumber !== expectedRound) {
+        throw new HttpsError(
+          "failed-precondition",
+          "The round has changed."
+        );
+      }
 
       const state = await updateGameState(
         code,
         state => {
           const order = state.playerOrder || [];
 
+          // Validate player membership.
           if (
             order.length !== MAX_PLAYERS ||
+            new Set(order).size !== MAX_PLAYERS ||
             !order.includes(uid)
           ) {
             throw new HttpsError(
@@ -1460,6 +1752,7 @@ exports.playCard = onCall(
             );
           }
 
+          // Validate the round again inside the transaction.
           if (state.roundNumber !== expectedRound) {
             throw new HttpsError(
               "failed-precondition",
@@ -1467,13 +1760,7 @@ exports.playCard = onCall(
             );
           }
 
-          // Milestone 4 supports Round 1.
-          if (state.roundNumber !== 1) {
-            throw new HttpsError(
-              "failed-precondition",
-              "Only Round 1 is currently supported."
-            );
-          }
+          validateRoundNumber(state.roundNumber);
 
           state.playedCards =
             state.playedCards || {};
@@ -1482,6 +1769,7 @@ exports.playCard = onCall(
             state.playedCards[uid] || [];
 
           // Idempotent retry of an accepted card play.
+          // A card can only be played once per round.
           if (
             previousPlays.some(
               c => cardId(c) === selectedCardId
@@ -1490,6 +1778,7 @@ exports.playCard = onCall(
             return state;
           }
 
+          // Verify the game is accepting card plays.
           if (state.phase !== "playing") {
             throw new HttpsError(
               "failed-precondition",
@@ -1497,6 +1786,7 @@ exports.playCard = onCall(
             );
           }
 
+          // Verify that it is this player's turn.
           if (state.currentPlayerId !== uid) {
             throw new HttpsError(
               "failed-precondition",
@@ -1506,7 +1796,7 @@ exports.playCard = onCall(
 
           const hand = state.hands?.[uid] || [];
 
-          // Validate card ownership inside transaction.
+          // Validate card ownership.
           const cardIndex = hand.findIndex(
             c => cardId(c) === selectedCardId
           );
@@ -1521,6 +1811,25 @@ exports.playCard = onCall(
           const plays =
             state.currentTrick?.plays || [];
 
+          const completedTricks =
+            state.completedTricks || [];
+
+          const trickNumber =
+            state.trickNumber || 1;
+
+          // Validate the current trick number.
+          if (
+            trickNumber < 1 ||
+            trickNumber > state.roundNumber ||
+            trickNumber !== completedTricks.length + 1
+          ) {
+            throw new HttpsError(
+              "failed-precondition",
+              "Invalid trick state."
+            );
+          }
+
+          // Prevent duplicate plays within a trick.
           if (
             plays.length >= MAX_PLAYERS ||
             plays.some(play => play.uid === uid)
@@ -1550,17 +1859,18 @@ exports.playCard = onCall(
             }
           }
 
-          // Remove card from authoritative hand.
+          // Remove the card from the authoritative hand.
           state.hands[uid] = hand.filter(
             c => cardId(c) !== selectedCardId
           );
 
-          // Record played card for duplicate protection.
+          // Record the played card for duplicate protection.
           state.playedCards[uid] = [
             ...previousPlays,
             card
           ];
 
+          // Add the card to the current trick.
           const updatedPlays = [
             ...plays,
             {
@@ -1569,86 +1879,146 @@ exports.playCard = onCall(
             }
           ];
 
-          state.trickNumber =
-            state.trickNumber || 1;
+          state.trickNumber = trickNumber;
 
           state.currentTrick = {
-            trickNumber: state.trickNumber,
+            trickNumber,
             plays: updatedPlays
           };
 
+          // ------------------------------------------
+          // TRICK IS STILL IN PROGRESS
+          // ------------------------------------------
+
           if (updatedPlays.length < MAX_PLAYERS) {
-            // Move to the next player.
+
             const index = order.indexOf(uid);
 
+            // Advance clockwise to the next player.
             state.currentPlayerId =
               order[(index + 1) % MAX_PLAYERS];
 
           } else {
-            // All four players have played.
+
+            // ----------------------------------------
+            // ALL FOUR PLAYERS HAVE PLAYED
+            // ----------------------------------------
+
             const winnerUid =
               determineTrickWinner(updatedPlays);
 
             state.tricksWon =
               state.tricksWon || {};
 
+            // Increment the winner's trick count.
             state.tricksWon[winnerUid] =
               (state.tricksWon[winnerUid] || 0) + 1;
 
             const completedTrick = {
-              trickNumber: state.trickNumber,
+              trickNumber,
               plays: updatedPlays,
               winnerUid
             };
 
+            // Preserve the most recently completed trick.
             state.lastTrick = completedTrick;
 
+            // Preserve all completed tricks in this round.
             state.completedTricks = [
-              ...(state.completedTricks || []),
+              ...completedTricks,
               completedTrick
             ];
 
+            // Clear the current table.
             state.currentTrick = null;
 
             const roundComplete =
               state.completedTricks.length ===
               state.roundNumber;
 
-            if (roundComplete) {
-              state.phase = "round-complete";
-              state.currentPlayerId = null;
+            
+        if (roundComplete) {
 
-              state.roundScores = {};
-              state.totalScores =
-                state.totalScores || {};
+          const remainingCards = order.reduce(
+            (sum, playerUid) =>
+              sum +
+              (state.hands?.[playerUid] || []).length,
+            0
+          );
 
-              for (const playerUid of order) {
-                const prediction =
-                  state.predictions?.[playerUid];
-
-                const tricksWon =
-                  state.tricksWon[playerUid] || 0;
-
-                const score =
-                  prediction === tricksWon
-                    ? 11 * prediction + 10
-                    : 0;
-
-                state.roundScores[playerUid] =
-                  score;
-
-                state.totalScores[playerUid] =
-                  (state.totalScores[playerUid] || 0) +
-                  score;
-              }
-
-            } else {
-              // Winner leads the next trick.
-              state.trickNumber += 1;
-              state.currentPlayerId = winnerUid;
-            }
+          if (remainingCards !== 0) {
+            throw new HttpsError(
+              "failed-precondition",
+              "Round completed with unplayed cards."
+            );
           }
 
+          state.phase = "round-complete";
+          state.currentPlayerId = null;
+
+          state.roundScores = {};
+
+          state.totalScores =
+            state.totalScores || {};
+
+          // Calculate round scores.
+          for (const playerUid of order) {
+
+            const prediction =
+              state.predictions?.[playerUid];
+
+            const tricksWon =
+              state.tricksWon[playerUid] || 0;
+
+            if (!Number.isInteger(prediction)) {
+              throw new HttpsError(
+                "failed-precondition",
+                "Player prediction is missing."
+              );
+            }
+
+            const score =
+              prediction === tricksWon
+                ? 11 * prediction + 10
+                : 0;
+
+            state.roundScores[playerUid] =
+              score;
+
+            state.totalScores[playerUid] =
+              (state.totalScores[playerUid] || 0) +
+              score;
+          }
+
+          // Final game completion.
+          if (state.roundNumber === MAX_ROUNDS) {
+
+            const result = determineGameWinners(
+              order,
+              state.totalScores
+            );
+
+            state.phase = "game-complete";
+            state.currentPlayerId = null;
+
+            state.winnerIds = result.winnerIds;
+            state.highestScore = result.highestScore;
+
+            state.finishedAt = Date.now();
+          }
+
+        } else {
+
+          // Start the next trick.
+          state.trickNumber =
+            trickNumber + 1;
+
+          // Previous trick winner leads.
+          state.currentPlayerId = winnerUid;
+        }
+          }
+
+          // Increment the authoritative state revision.
           state.revision =
             (state.revision || 0) + 1;
 
@@ -1658,27 +2028,51 @@ exports.playCard = onCall(
         }
       );
 
-      // Synchronize private hand first, then publish
-      // the new public turn.
-      await syncPrivateHand(code, state, uid);
-
-      await syncPublicRoom(code, state);
-
+      // Synchronize all private hands and public state.
+      await syncGameProjections(code, state);
+      
       return {
         code,
         card,
+
         roundNumber: state.roundNumber,
         phase: state.phase,
+
+        trickNumber: state.trickNumber || 1,
+
         currentPlayerId:
           state.currentPlayerId || null,
+
         currentTrick:
           state.currentTrick || null,
+
         lastTrick:
           state.lastTrick || null,
+
         tricksWon:
           state.tricksWon || {},
+
         roundScores:
           state.roundScores || {},
+
+        totalScores:
+          state.totalScores || {},
+        
+        gameComplete:
+          state.phase === "game-complete",
+        
+        winnerIds:
+          state.winnerIds || [],
+        
+        highestScore:
+          state.highestScore ?? null,
+        
+        finishedAt:
+          state.finishedAt || null,
+
+        completedTrickCount:
+          (state.completedTricks || []).length,
+
         revision: state.revision
       };
 
@@ -1689,5 +2083,68 @@ exports.playCard = onCall(
 );
 
 
+// --------------------------------------------------
+// RECOVER CARD GAME STATE
+// --------------------------------------------------
 
+exports.recoverCardGameState = onCall(
+  { region: REGION },
+  async (request) => {
+    try {
+      const uid = requireUser(request);
+      const code = validateCode(request.data?.code);
 
+      const roomSnapshot = await db
+        .ref(`cardRooms/${code}`)
+        .get();
+
+      const room = roomSnapshot.val();
+
+      if (!room) {
+        throw new HttpsError(
+          "not-found",
+          "Room not found."
+        );
+      }
+
+      if (!room.players?.[uid]) {
+        throw new HttpsError(
+          "permission-denied",
+          "You are not a member of this room."
+        );
+      }
+
+      const state =
+        await getAuthoritativeGameState(code);
+
+      if (!state.playerOrder?.includes(uid)) {
+        throw new HttpsError(
+          "permission-denied",
+          "You are not a player in this game."
+        );
+      }
+
+      // Repair projections using the authoritative
+      // game state. Never generate new cards.
+      await syncGameProjections(code, state);
+
+      return {
+        code,
+
+        recovered: true,
+
+        roundNumber: state.roundNumber,
+
+        phase: state.phase,
+
+        currentPlayerId:
+          state.currentPlayerId || null,
+
+        revision: state.revision || 0
+      };
+
+    } catch (error) {
+      normalizeError(error);
+    }
+  }
+);

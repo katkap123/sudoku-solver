@@ -1,6 +1,28 @@
+
 {
   "rules": {
     ".read": false,
-    ".write": false
+    ".write": false,
+
+    "cardRooms": {
+      "$roomCode": {
+        ".read": "auth != null && data.child('players').child(auth.uid).exists()",
+        ".write": false
+      }
+    },
+
+    "cardPrivateHands": {
+      "$roomCode": {
+        "$playerUid": {
+          ".read": "auth != null && auth.uid === $playerUid && root.child('cardRooms').child($roomCode).child('players').child(auth.uid).exists()",
+          ".write": false
+        }
+      }
+    },
+
+    "cardGameState": {
+      ".read": false,
+      ".write": false
+    }
   }
 }
