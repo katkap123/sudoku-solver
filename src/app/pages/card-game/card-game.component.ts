@@ -3,11 +3,13 @@ import { Component, OnDestroy, inject } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
+
 import {
   CardGameService,
   CardRoom,
   PrivateCardHand,
-  PlayingCard
+  PlayingCard,
+  CardPlay
 } from '../../services/card-game.service';
 
 @Component({
@@ -46,6 +48,70 @@ get isPredicting(): boolean {
 get isMyTurn(): boolean {
   return this.isPredicting &&
     this.room?.currentPlayerId === this.myId;
+}
+
+
+get isPlaying(): boolean {
+  return this.room?.status === 'playing' &&
+    this.room?.phase === 'playing';
+}
+
+get isMyPlayTurn(): boolean {
+  return this.isPlaying &&
+    this.room?.currentPlayerId === this.myId;
+}
+
+get isRoundComplete(): boolean {
+  return this.room?.phase === 'round-complete';
+}
+
+get myCards(): PlayingCard[] {
+  if (
+    !this.hand ||
+    this.hand.roundNumber !== this.room?.roundNumber
+  ) {
+    return [];
+  }
+
+  return this.hand.cards ?? [];
+}
+
+get currentTrickPlays(): CardPlay[] {
+  return this.room?.currentTrick?.plays ?? [];
+}
+
+get lastTrickPlays(): CardPlay[] {
+  return this.room?.lastTrick?.plays ?? [];
+}
+
+get currentTrickNumber(): number {
+  return this.room?.trickNumber ?? 1;
+}
+
+get leadSuit(): PlayingCard['suit'] | null {
+  return this.currentTrickPlays[0]?.card.suit ?? null;
+}
+
+get lastTrickWinner(): string {
+  const uid = this.room?.lastTrick?.winnerUid;
+
+  if (!uid) {
+    return '';
+  }
+
+  return this.room?.players?.[uid]?.name ?? 'Unknown';
+}
+
+get myTricksWon(): number {
+  return this.room?.tricksWon?.[this.myId] ?? 0;
+}
+
+get myRoundScore(): number {
+  return this.room?.roundScores?.[this.myId] ?? 0;
+}
+
+get myTotalScore(): number {
+  return this.room?.players?.[this.myId]?.totalScore ?? 0;
 }
 
 get myPrediction(): number | undefined {
@@ -99,6 +165,121 @@ get availablePredictions(): number[] {
   isRedCard(card: PlayingCard): boolean {
     return card.suit === 'H' || card.suit === 'D';
   }
+
+
+canPlayCard(card: PlayingCard): boolean {
+  if (
+    !this.isMyPlayTurn ||
+    this.busy ||
+    this.isRoundComplete
+  ) {
+    return false;
+  }
+
+  // Make sure the card is still in my hand.
+  const ownsCard = this.myCards.some(
+    c => c.suit === card.suit &&
+         c.rank === card.rank
+  );
+
+  if (!ownsCard) {
+    return false;
+  }
+
+  // The first player can lead any card.
+  const leadSuit = this.leadSuit;
+
+  if (!leadSuit) {
+    return true;
+  }
+
+  // Check whether I have a card matching
+  // the lead suit.
+  const hasLeadSuit = this.myCards.some(
+    c => c.suit === leadSuit
+  );
+
+  // If I have the lead suit, I must follow it.
+  if (hasLeadSuit) {
+    return card.suit === leadSuit;
+  }
+
+  // Otherwise, I can play any card.
+  return true;
+}
+
+playCard(card: PlayingCard): void {
+  if (!this.canPlayCard(card)) {
+    return;
+  }
+
+  void this.execute(async () => {
+    const result = await this.game.playCard(
+      this.code,
+      card
+    );
+
+    console.log('CARD PLAY RESULT:', result);
+  });
+}
+
+
+getPlayerName(uid: string): string {
+  return this.room?.players?.[uid]?.name ?? 'Unknown';
+}
+
+getPlayerPrediction(uid: string): number | undefined {
+  return this.room?.predictions?.[uid];
+}
+
+getPlayerTricksWon(uid: string): number {
+  return this.room?.tricksWon?.[uid] ?? 0;
+}
+
+getPlayerRoundScore(uid: string): number {
+  return this.room?.roundScores?.[uid] ?? 0;
+}
+
+getPlayerTotalScore(uid: string): number {
+  return this.room?.players?.[uid]?.totalScore ?? 0;
+}
+
+getPlayedCard(uid: string): PlayingCard | null {
+  return this.currentTrickPlays.find(
+    play => play.uid === uid
+  )?.card ?? null;
+}
+
+getLastPlayedCard(uid: string): PlayingCard | null {
+  return this.lastTrickPlays.find(
+    play => play.uid === uid
+  )?.card ?? null;
+}
+
+isCurrentPlayer(uid: string): boolean {
+  return !this.isRoundComplete &&
+    this.room?.currentPlayerId === uid;
+}
+
+isLastTrickWinner(uid: string): boolean {
+  return this.room?.lastTrick?.winnerUid === uid;
+}
+
+get tablePlayerOrder(): string[] {
+  const order = this.room?.playerOrder ?? [];
+
+  const myIndex = order.indexOf(this.myId);
+
+  if (myIndex < 0) {
+    return order;
+  }
+
+  return [
+    ...order.slice(myIndex),
+    ...order.slice(0, myIndex)
+  ];
+}
+
 
   deal(): void {
     void this.execute(async () => {

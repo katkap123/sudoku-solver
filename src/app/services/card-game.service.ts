@@ -24,6 +24,36 @@ import {
 
 import { environment } from '../../environment/environment';
 
+
+export type CardGamePhase =
+  | 'predicting'
+  | 'playing'
+  | 'round-complete';
+
+export interface CardPlay {
+  uid: string;
+  card: PlayingCard;
+}
+
+export interface CardTrick {
+  trickNumber: number;
+  plays?: CardPlay[];
+  winnerUid?: string;
+}
+
+export interface PlayCardResponse {
+  code: string;
+  card: PlayingCard;
+  roundNumber: number;
+  phase: CardGamePhase;
+  currentPlayerId: string | null;
+  currentTrick: CardTrick | null;
+  lastTrick: CardTrick | null;
+  tricksWon: Record<string, number>;
+  roundScores: Record<string, number>;
+  revision: number;
+}
+
 export interface CardPlayer {
   uid: string;
   name: string;
@@ -31,19 +61,42 @@ export interface CardPlayer {
   totalScore: number;
 }
 
+
 export interface CardRoom {
   code: string;
-  status: 'waiting' | 'ready' | 'dealing' | 'playing' | 'finished';
+
+  status:
+    | 'waiting'
+    | 'ready'
+    | 'dealing'
+    | 'playing'
+    | 'finished';
+
   hostId: string;
   createdAt: number;
   updatedAt?: number;
+
   players: Record<string, CardPlayer>;
   playerOrder?: string[];
+
   roundNumber?: number;
   startingPlayerId?: string;
-  phase?: 'predicting' | 'playing';
-  currentPlayerId?: string;
+
+  phase?: CardGamePhase;
+
+  currentPlayerId?: string | null;
+
   predictions?: Record<string, number>;
+
+  // Milestone 4
+  trickNumber?: number;
+  currentTrick?: CardTrick | null;
+  lastTrick?: CardTrick | null;
+
+  tricksWon?: Record<string, number>;
+  roundScores?: Record<string, number>;
+
+  revision?: number;
 }
 
 interface CreateRoomResponse {
@@ -87,6 +140,8 @@ export interface PlayingCard {
 export interface PrivateCardHand {
   roundNumber: number;
   cards: PlayingCard[];
+  cardCount?: number;
+  revision?: number;
 }
 
 export interface DealRoundResponse {
@@ -100,8 +155,9 @@ export interface PredictionResponse {
   code: string;
   roundNumber: number;
   prediction: number;
-  phase: 'predicting' | 'playing';
-  currentPlayerId: string;
+  phase: CardGamePhase;
+  currentPlayerId: string | null;
+  revision?: number;
 }
 
 @Injectable({
@@ -204,22 +260,75 @@ async checkGameState(code: string): Promise<any> {
     return result.data;
   }
 
+  async playCard(
+    code: string,
+    card: PlayingCard
+  ): Promise<PlayCardResponse> {
+
+    await this.signIn();
+
+    const fn = httpsCallable<
+      {
+        code: string;
+        card: PlayingCard;
+      },
+      PlayCardResponse
+    >(
+      this.functions,
+      'playCard'
+    );
+
+    const result = await fn({
+      code: this.normalizeCode(code),
+      card: {
+        suit: card.suit,
+        rank: card.rank
+      }
+    });
+
+    return result.data;
+  }
+
+  
   watchMyHand(
     code: string,
     next: (hand: PrivateCardHand | null) => void,
     error: (message: string) => void
   ): Unsubscribe {
+
     const roomCode = this.normalizeCode(code);
     const uid = this.uid;
 
     if (!uid) {
-      throw new Error('Sign in before watching your cards.');
+      throw new Error(
+        'Sign in before watching your cards.'
+      );
     }
 
     return onValue(
-      ref(this.db, `cardPrivateHands/${roomCode}/${uid}`),
+      ref(
+        this.db,
+        `cardPrivateHands/${roomCode}/${uid}`
+      ),
       snapshot => {
-        next(snapshot.val() as PrivateCardHand | null);
+        const data = snapshot.val();
+
+        if (!data) {
+          next(null);
+          return;
+        }
+
+        const cards: PlayingCard[] =
+          Array.isArray(data.cards)
+            ? data.cards
+            : [];
+
+        next({
+          roundNumber: data.roundNumber,
+          cards,
+          cardCount: cards.length,
+          revision: data.revision ?? 0
+        });
       },
       e => error(e.message)
     );
