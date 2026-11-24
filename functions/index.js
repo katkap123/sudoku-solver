@@ -680,6 +680,8 @@ exports.leaveCardRoom = cardRooms.leaveCardRoom;
 
 exports.dealCardRound = cardRooms.dealCardRound;
 exports.submitCardPrediction = cardRooms.submitCardPrediction;
+exports.playCard =
+  require("./card-room-functions").playCard;
 
-
-  
+exports.checkCardGameState =
+  require("./card-room-functions").checkCardGameState;

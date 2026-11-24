@@ -53,6 +53,8 @@ interface CreateRoomResponse {
   status: string;
 }
 
+
+
 interface JoinRoomResponse {
   code: string;
   roomCode: string;
@@ -157,6 +159,18 @@ export class CardGameService {
 
     return result.data.code;
   }
+
+
+async checkGameState(code: string): Promise<any> {
+  const callable = httpsCallable(
+    this.functions,
+    'checkCardGameState'
+  );
+
+  const result = await callable({ code });
+
+  return result.data;
+}
 
 
   async dealRound(code: string): Promise<DealRoundResponse> {

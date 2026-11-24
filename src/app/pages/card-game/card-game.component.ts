@@ -290,6 +290,20 @@ get availablePredictions(): number[] {
     });
   }
 
+
+async debugGameState(): Promise<void> {
+  try {
+    const result = await this.game.checkGameState(
+      this.code
+    );
+
+    console.log('CARD GAME STATE CHECK:', result);
+  } catch (error) {
+    console.error('CARD GAME STATE CHECK FAILED:', error);
+  }
+}
+
+
   ngOnDestroy(): void {
     this.unsubscribeHand?.();
     this.unsubscribe?.();

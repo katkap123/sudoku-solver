@@ -180,6 +180,7 @@ exports.createCardRoom = onCall(
 // JOIN CARD ROOM
 // --------------------------------------------------
 
+
 exports.joinCardRoom = onCall(
   { region: REGION },
   async (request) => {
@@ -190,46 +191,93 @@ exports.joinCardRoom = onCall(
         request.data?.playerName
       );
 
-      const ref = db.ref(`cardRooms/${code}`);
-      const now = Date.now();
+      
+const roomRef = db.ref(`cardRooms/${code}`);
+const now = Date.now();
 
-      const result = await ref.transaction(
-        (room) => {
-          if (!room) {
-            return;
-          }
+// Read the existing room before starting the transaction.
+// This also lets us return a clear error for missing rooms.
+const initialSnapshot = await roomRef.get();
+const initialRoom = initialSnapshot.val();
 
-          if (room.players?.[uid]) {
-            return room;
-          }
+if (!initialRoom) {
+  throw new HttpsError(
+    "not-found",
+    "Room not found."
+  );
+}
 
-          if (room.status !== "waiting") {
-            return;
-          }
+if (initialRoom.players?.[uid]) {
+  return {
+    code,
+    roomCode: code,
+    status: initialRoom.status,
+    hostId: initialRoom.hostId,
+    playerCount: Object.keys(initialRoom.players).length
+  };
+}
 
-          if (playerIds(room).length >= MAX_PLAYERS) {
-            return;
-          }
+if (initialRoom.status !== "waiting") {
+  throw new HttpsError(
+    "failed-precondition",
+    "This game has already started."
+  );
+}
 
-          room.players = room.players || {};
+if (Object.keys(initialRoom.players || {}).length >= MAX_PLAYERS) {
+  throw new HttpsError(
+    "resource-exhausted",
+    "Room already has four players."
+  );
+}
 
-          room.players[uid] = {
-            uid,
-            name: playerName,
-            joinedAt: now,
-            totalScore: 0
-          };
 
-          room.updatedAt = now;
+const result = await roomRef.transaction(
+  (room) => {
+    // Firebase may initially provide null before
+    // loading the existing server value.
+    //
+    // Do not return undefined here because that
+    // immediately cancels the transaction.
+    if (room === null) {
+      return room;
+    }
 
-          return room;
-        },
-        undefined,
-        false
-      );
+    if (room.players?.[uid]) {
+      return room;
+    }
+
+    if (room.status !== "waiting") {
+      return;
+    }
+
+    const players = room.players || {};
+
+    if (Object.keys(players).length >= MAX_PLAYERS) {
+      return;
+    }
+
+    return {
+      ...room,
+      updatedAt: now,
+      players: {
+        ...players,
+        [uid]: {
+          uid,
+          name: playerName,
+          joinedAt: now,
+          totalScore: 0
+        }
+      }
+    };
+  },
+  undefined,
+  false
+);
+
 
       if (!result.committed) {
-        const snapshot = await ref.get();
+        const snapshot = await roomRef.get();
         const room = snapshot.val();
 
         if (!room) {
@@ -239,6 +287,16 @@ exports.joinCardRoom = onCall(
           );
         }
 
+        if (room.players?.[uid]) {
+          return {
+            code,
+            roomCode: code,
+            status: room.status,
+            hostId: room.hostId,
+            playerCount: Object.keys(room.players).length
+          };
+        }
+
         if (room.status !== "waiting") {
           throw new HttpsError(
             "failed-precondition",
@@ -246,7 +304,10 @@ exports.joinCardRoom = onCall(
           );
         }
 
-        if (playerIds(room).length >= MAX_PLAYERS) {
+        if (
+          Object.keys(room.players || {}).length >=
+          MAX_PLAYERS
+        ) {
           throw new HttpsError(
             "resource-exhausted",
             "Room already has four players."
@@ -255,7 +316,7 @@ exports.joinCardRoom = onCall(
 
         throw new HttpsError(
           "aborted",
-          "Unable to join the room. Please retry."
+          "Room changed during joining. Please retry."
         );
       }
 
@@ -266,8 +327,9 @@ exports.joinCardRoom = onCall(
         roomCode: code,
         status: room.status,
         hostId: room.hostId,
-        playerCount: playerIds(room).length
+        playerCount: Object.keys(room.players || {}).length
       };
+
     } catch (error) {
       normalizeError(error);
     }
@@ -278,6 +340,7 @@ exports.joinCardRoom = onCall(
 // START CARD GAME
 // --------------------------------------------------
 
+
 exports.startCardGame = onCall(
   { region: REGION },
   async (request) => {
@@ -285,12 +348,10 @@ exports.startCardGame = onCall(
       const uid = requireUser(request);
       const code = validateCode(request.data?.code);
 
-      const ref = db.ref(`cardRooms/${code}`);
-      const now = Date.now();
+      const roomRef = db.ref(`cardRooms/${code}`);
 
-      // The transaction can be retried, so generate
-      // the order once before entering its callback.
-      const snapshot = await ref.get();
+      // Read current room state.
+      const snapshot = await roomRef.get();
       const initialRoom = snapshot.val();
 
       if (!initialRoom) {
@@ -310,65 +371,80 @@ exports.startCardGame = onCall(
       if (initialRoom.status !== "waiting") {
         throw new HttpsError(
           "failed-precondition",
-          "The room is not waiting."
+          "The game has already started."
         );
       }
 
-      if (playerIds(initialRoom).length !== MAX_PLAYERS) {
+      const ids = Object.keys(initialRoom.players || {});
+
+      if (ids.length !== MAX_PLAYERS) {
         throw new HttpsError(
           "failed-precondition",
           "Exactly four players are required."
         );
       }
 
-      const initialIds = playerIds(initialRoom);
-      const order = shufflePlayers(initialIds);
+      const order = shufflePlayers(ids);
+      const now = Date.now();
 
-      const result = await ref.transaction(
-        (room) => {
-          if (!room) {
-            return;
-          }
+      // Firebase Admin SDK transaction callback can
+      // initially receive null. Retry with a known
+      // initial room value while preserving checks.
+      
+    const result = await roomRef.transaction(
+      (room) => {
+        // If the transaction starts with a local null value,
+        // use the previously fetched room as a candidate.
+        // Firebase will check the server's current version
+        // before committing and retry on a conflict.
+        if (room === null) {
+          room = initialRoom;
+        }
 
-          if (room.hostId !== uid) {
-            return;
-          }
+        if (
+          !room ||
+          room.hostId !== uid ||
+          room.status !== "waiting"
+        ) {
+          return;
+        }
 
-          if (room.status !== "waiting") {
-            return;
-          }
+        const currentIds = Object.keys(room.players || {});
 
-          const currentIds = playerIds(room);
+        if (
+          currentIds.length !== MAX_PLAYERS ||
+          currentIds.some(id => !ids.includes(id))
+        ) {
+          return;
+        }
 
-          if (currentIds.length !== MAX_PLAYERS) {
-            return;
-          }
+        console.log("START TRANSACTION CALLBACK", {
+          status: room.status,
+          playerCount: currentIds.length
+        });
 
-          // Reject changes in membership between
-          // reading the room and committing the start.
-          if (
-            currentIds.some(
-              (id) => !initialIds.includes(id)
-            )
-          ) {
-            return;
-          }
-
-          room.status = "ready";
-          room.playerOrder = order;
-          room.roundNumber = 0;
-          room.updatedAt = now;
-
-          return room;
-        },
-        undefined,
-        false
-      );
+        return {
+          ...room,
+          status: "ready",
+          playerOrder: order,
+          roundNumber: 0,
+          updatedAt: now
+        };
+      },
+      undefined,
+      false
+    );
 
       if (!result.committed) {
+        console.error("START GAME TRANSACTION ABORTED", {
+          code,
+          initialStatus: initialRoom.status,
+          initialPlayerCount: ids.length
+        });
+
         throw new HttpsError(
           "aborted",
-          "Room changed before starting. Please retry."
+          "Room changed before starting."
         );
       }
 
@@ -378,11 +454,13 @@ exports.startCardGame = onCall(
         status: "ready",
         playerOrder: order
       };
+
     } catch (error) {
       normalizeError(error);
     }
   }
 );
+
 
 // --------------------------------------------------
 // LEAVE CARD ROOM
@@ -492,6 +570,50 @@ function shuffleDeck() {
   return deck;
 }
 
+
+function isValidCard(card) {
+  return (
+    card !== null &&
+    typeof card === "object" &&
+    !Array.isArray(card) &&
+    CARD_SUITS.includes(card.suit) &&
+    CARD_RANKS.includes(card.rank)
+  );
+}
+
+function cardId(card) {
+  return `${card.suit}:${card.rank}`;
+}
+
+function cardRankValue(card) {
+  return CARD_RANKS.indexOf(card.rank) + 2;
+}
+
+function determineTrickWinner(plays) {
+  const leadSuit = plays[0].card.suit;
+
+  function strength(card) {
+    const rank = cardRankValue(card);
+
+    if (card.suit === "H") {
+      return 200 + rank;
+    }
+
+    if (card.suit === leadSuit) {
+      return 100 + rank;
+    }
+
+    return rank;
+  }
+
+  return plays.reduce((best, play) =>
+    strength(play.card) > strength(best.card)
+      ? play
+      : best
+  ).uid;
+}
+
+
 function validatePrediction(value, roundNumber) {
   if (
     !Number.isInteger(value) ||
@@ -506,6 +628,84 @@ function validatePrediction(value, roundNumber) {
 
   return value;
 }
+
+async function getAuthoritativeGameState(code) {
+  const snapshot = await db
+    .ref(`cardGameState/${code}`)
+    .get();
+
+  const state = snapshot.val();
+
+  if (!state) {
+    throw new HttpsError(
+      "failed-precondition",
+      "Game state is unavailable. Start a new game."
+    );
+  }
+
+  return state;
+}
+
+
+exports.checkCardGameState = onCall(
+  { region: REGION },
+  async (request) => {
+    try {
+      const uid = requireUser(request);
+      const code = validateCode(request.data?.code);
+
+      const roomSnapshot = await db
+        .ref(`cardRooms/${code}`)
+        .get();
+
+      const room = roomSnapshot.val();
+
+      if (!room) {
+        throw new HttpsError(
+          "not-found",
+          "Room not found."
+        );
+      }
+
+      if (!room.players?.[uid]) {
+        throw new HttpsError(
+          "permission-denied",
+          "You are not a member of this room."
+        );
+      }
+
+      const state =
+        await getAuthoritativeGameState(code);
+
+      const order = state.playerOrder || [];
+
+      const handCounts = {};
+
+      for (const playerUid of order) {
+        handCounts[playerUid] =
+          (state.hands?.[playerUid] || []).length;
+      }
+
+      return {
+        code,
+        roomStatus: room.status,
+        roomPhase: room.phase,
+        roomRoundNumber: room.roundNumber,
+        statePhase: state.phase,
+        stateRoundNumber: state.roundNumber,
+        playerCount: order.length,
+        handCounts,
+        revision: state.revision || 0,
+        consistent:
+          room.roundNumber === state.roundNumber &&
+          room.phase === state.phase
+      };
+
+    } catch (error) {
+      normalizeError(error);
+    }
+  }
+);
 
 // --------------------------------------------------
 // DEAL CARD ROUND
@@ -568,6 +768,15 @@ exports.dealCardRound = onCall(
       // Lock the room before dealing.
       const lockResult = await roomRef.transaction(
         room => {
+          // Use the previously fetched room only when Firebase
+          // initially invokes the transaction with null.
+          if (room === null) {
+            room = initialRoom;
+          }
+
+          if (!room) {
+            return;
+          }
           if (
             !room ||
             room.hostId !== uid ||
@@ -605,6 +814,31 @@ exports.dealCardRound = onCall(
       try {
         const deck = shuffleDeck();
         const updates = {};
+
+        const hands = {};
+
+        for (let i = 0; i < MAX_PLAYERS; i++) {
+          const playerUid = order[i];
+          hands[playerUid] = [deck[i]];
+        }
+
+        updates[`cardGameState/${code}`] = {
+          roundNumber: 1,
+          phase: "predicting",
+          playerOrder: order,
+          startingPlayerId: order[0],
+          currentPlayerId: order[0],
+          hands,
+          predictions: {},
+          currentTrick: {
+            plays: []
+          },
+          completedTricks: [],
+          tricksWon: {},
+          roundScores: {},
+          revision: 0,
+          updatedAt: Date.now()
+        };
 
         // Round 1: one card per player.
         // Each hand is stored at a private path.
@@ -722,6 +956,30 @@ exports.submitCardPrediction = onCall(
 
       const result = await roomRef.transaction(
         room => {
+
+    // Firebase may initially provide null to the
+    // transaction callback even when the room exists.
+    // Use the previously fetched room as the candidate.
+    if (room === null) {
+        room = initialRoom;
+      }
+
+      if (!room) {
+        return;
+      }
+
+      console.log("PREDICTION DEBUG", {
+        roomExists: room !== null,
+        status: room?.status,
+        phase: room?.phase,
+        roundNumber: room?.roundNumber,
+        currentPlayerId: room?.currentPlayerId,
+        requestingPlayerId: uid,
+        prediction: prediction,
+        playerOrder: room?.playerOrder,
+        existingPredictions: room?.predictions
+      });
+
           if (
             !room ||
             room.status !== "playing" ||
@@ -836,4 +1094,303 @@ exports.submitCardPrediction = onCall(
     }
   }
 );
+
+
+
+exports.playCard = onCall(
+  { region: REGION },
+  async (request) => {
+    try {
+      const uid = requireUser(request);
+      const code = validateCode(request.data?.code);
+      const card = request.data?.card;
+
+      if (!isValidCard(card)) {
+        throw new HttpsError(
+          "invalid-argument",
+          "Invalid card."
+        );
+      }
+
+      const roomRef = db.ref(`cardRooms/${code}`);
+      const handRef = db.ref(
+        `cardPrivateHands/${code}/${uid}`
+      );
+
+      const [roomSnapshot, handSnapshot] =
+        await Promise.all([
+          roomRef.get(),
+          handRef.get()
+        ]);
+
+      const initialRoom = roomSnapshot.val();
+      const hand = handSnapshot.val();
+
+      if (!initialRoom) {
+        throw new HttpsError(
+          "not-found",
+          "Room not found."
+        );
+      }
+
+      if (!initialRoom.players?.[uid]) {
+        throw new HttpsError(
+          "permission-denied",
+          "You are not in this room."
+        );
+      }
+
+      if (
+        hand?.roundNumber !== initialRoom.roundNumber ||
+        !Array.isArray(hand.cards)
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Your hand is unavailable."
+        );
+      }
+
+      const selectedCardId = cardId(card);
+
+      if (
+        !hand.cards.some(
+          c => isValidCard(c) && cardId(c) === selectedCardId
+        )
+      ) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Card is not in your hand."
+        );
+      }
+
+      const result = await roomRef.transaction(
+        (room) => {
+          if (room === null) {
+            room = initialRoom;
+          }
+
+          if (
+            !room ||
+            room.status !== "playing" ||
+            room.phase !== "playing" ||
+            room.currentPlayerId !== uid ||
+            room.roundNumber !== 1
+          ) {
+            return;
+          }
+
+          const order = room.playerOrder || [];
+
+          if (
+            !Array.isArray(order) ||
+            order.length !== MAX_PLAYERS ||
+            !order.includes(uid)
+          ) {
+            return;
+          }
+
+          const plays = room.currentTrick?.plays || [];
+
+          if (
+            !Array.isArray(plays) ||
+            plays.length >= MAX_PLAYERS ||
+            plays.some(p => p.uid === uid)
+          ) {
+            return;
+          }
+
+          // Prevent the same card from being played twice.
+          const previouslyPlayed = [
+            ...plays,
+            ...(room.lastTrick?.plays || [])
+          ];
+
+          if (
+            previouslyPlayed.some(
+              p => cardId(p.card) === selectedCardId
+            )
+          ) {
+            return;
+          }
+
+          // Follow suit when possible.
+          if (plays.length > 0) {
+            const leadSuit = plays[0].card.suit;
+
+            const hasLeadSuit = hand.cards.some(
+              c => c.suit === leadSuit
+            );
+
+            if (
+              hasLeadSuit &&
+              card.suit !== leadSuit
+            ) {
+              return;
+            }
+          }
+
+          const updatedPlays = [
+            ...plays,
+            { uid, card }
+          ];
+
+          room.currentTrick = {
+            plays: updatedPlays
+          };
+
+          if (updatedPlays.length < MAX_PLAYERS) {
+            const currentIndex = order.indexOf(uid);
+
+            room.currentPlayerId =
+              order[(currentIndex + 1) % MAX_PLAYERS];
+          } else {
+            const winnerUid =
+              determineTrickWinner(updatedPlays);
+
+            room.tricksWon = room.tricksWon || {};
+            room.tricksWon[winnerUid] =
+              (room.tricksWon[winnerUid] || 0) + 1;
+
+            room.lastTrick = {
+              plays: updatedPlays,
+              winnerUid
+            };
+
+            room.currentTrick = {
+              plays: []
+            };
+
+            // Round 1 contains exactly one trick.
+            room.phase = "round-complete";
+            room.currentPlayerId = null;
+
+            room.roundScores = {};
+            for (const playerUid of order) {
+              const bid = room.predictions?.[playerUid];
+              const won = room.tricksWon?.[playerUid] || 0;
+
+              const score =
+                Number.isInteger(bid) && bid === won
+                  ? 11 * bid + 10
+                  : 0;
+
+              room.roundScores[playerUid] = score;
+              room.players[playerUid].totalScore =
+                (room.players[playerUid].totalScore || 0) +
+                score;
+            }
+          }
+
+          room.updatedAt = Date.now();
+
+          return room;
+        },
+        undefined,
+        false
+      );
+
+      if (!result.committed) {
+        throw new HttpsError(
+          "failed-precondition",
+          "Card play rejected. Check your turn and card."
+        );
+      }
+
+      // Remove the played card from the player's private
+      // hand. This is a separate write and is therefore
+      // not atomic with the room transaction.
+      await handRef.transaction(
+        (currentHand) => {
+          if (!currentHand) {
+            return;
+          }
+
+          if (
+            currentHand.roundNumber !==
+            initialRoom.roundNumber
+          ) {
+            return;
+          }
+
+          currentHand.cards = (
+            currentHand.cards || []
+          ).filter(
+            c => cardId(c) !== selectedCardId
+          );
+
+          return currentHand;
+        },
+        undefined,
+        false
+      );
+
+      const updatedRoom = result.snapshot.val();
+
+      return {
+        code,
+        card,
+        phase: updatedRoom.phase,
+        currentPlayerId: updatedRoom.currentPlayerId,
+        currentTrick: updatedRoom.currentTrick || null,
+        lastTrick: updatedRoom.lastTrick || null,
+        tricksWon: updatedRoom.tricksWon || {},
+        roundScores: updatedRoom.roundScores || {}
+      };
+    } catch (error) {
+      normalizeError(error);
+    }
+  }
+);
+
+
+
+function getCardSuit(card) {
+  // Assumes cards have a suit property.
+  return card?.suit;
+}
+
+function getCardRank(card) {
+  const rank = card?.rank;
+
+  if (typeof rank === "number") {
+    return rank;
+  }
+
+  const values = {
+    A: 14,
+    K: 13,
+    Q: 12,
+    J: 11
+  };
+
+  return values[String(rank).toUpperCase()] ??
+    Number(rank);
+}
+
+function getTrickWinner(plays) {
+  const leadSuit = getCardSuit(plays[0].card);
+
+  function strength(card) {
+    const suit = getCardSuit(card);
+    const rank = getCardRank(card);
+
+    if (String(suit).toUpperCase() === "H" ||
+        String(suit).toLowerCase() === "hearts") {
+      return 200 + rank;
+    }
+
+    if (suit === leadSuit) {
+      return 100 + rank;
+    }
+
+    return 0;
+  }
+
+  return plays.reduce((best, play) =>
+    strength(play.card) > strength(best.card)
+      ? play
+      : best
+  ).uid;
+}
+
 
