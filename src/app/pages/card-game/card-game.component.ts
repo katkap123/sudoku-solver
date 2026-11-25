@@ -113,8 +113,7 @@ export class CardGameComponent implements OnDestroy {
   }
 
   get showMultiplayerLobby(): boolean {
-    return this.room?.status === 'waiting' ||
-           this.room?.status === 'ready';
+    return this.room?.status === 'waiting';
   }
 
   isScorecardLeader(playerUid: string): boolean {

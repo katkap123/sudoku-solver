@@ -3,9 +3,13 @@
 
   <h1>13 Rounds — Multiplayer Cards</h1>
 
-  <p class="subtitle">
+  <p
+    class="subtitle"
+    *ngIf="!room || showMultiplayerLobby">
+
     Play a 13-round trick-taking card game with four players.
     Predict your tricks, follow suit, and score points!
+
   </p>
 
   <p class="error" *ngIf="error" role="alert">
@@ -13,6 +17,7 @@
   </p>
 
   <!-- CREATE / JOIN ROOM -->
+
   <ng-container *ngIf="!room; else lobby">
 
     <div class="game-panel">
@@ -79,71 +84,72 @@
 
   </ng-container>
 
-  <!-- MULTIPLAYER LOBBY -->
+  <!-- MULTIPLAYER ROOM TEMPLATE -->
+
   <ng-template #lobby>
 
     <div class="game-panel">
 
-      <h2>
-        {{ isGameComplete
-          ? 'Game Results'
-          : 'Multiplayer Lobby' }}
-      </h2>
+      <!-- LOBBY DETAILS: WAITING STATE ONLY -->
 
-      <div class="room-info">
+      <ng-container *ngIf="showMultiplayerLobby">
 
-        <p>Room Code</p>
+        <h2>Multiplayer Lobby</h2>
 
-        <div class="room-code">
+        <div class="room-info">
 
-          <strong>{{ code }}</strong>
+          <p>Room Code</p>
 
-          <button
-            type="button"
-            class="secondary"
-            (click)="copyRoomCode()">
+          <div class="room-code">
 
-            Copy Code
+            <strong>{{ code }}</strong>
 
-          </button>
+            <button
+              type="button"
+              class="secondary"
+              (click)="copyRoomCode()">
+
+              Copy Code
+
+            </button>
+
+          </div>
+
+          <p>
+            Status:
+            <strong>{{ room?.status }}</strong>
+          </p>
+
+          <p>
+            Players:
+            <strong>{{ playerCount }}/4</strong>
+          </p>
 
         </div>
 
-        <p>
-          Status:
-          <strong>{{ room?.status }}</strong>
-        </p>
+        <!-- PLAYER LIST -->
 
-        <p>
-          Players:
-          <strong>{{ playerCount }}/4</strong>
-        </p>
+        <h3>Players</h3>
 
-      </div>
+        <ul class="player-list">
 
-      <!-- PLAYER LIST -->
-      <h3>Players</h3>
+          <li *ngFor="let entry of playerEntries">
 
-      <ul class="player-list">
+            <span>{{ entry[1].name }}</span>
 
-        <li *ngFor="let entry of playerEntries">
+            <span *ngIf="entry[0] === room?.hostId">
+              (Host)
+            </span>
 
-          <span>{{ entry[1].name }}</span>
+            <span *ngIf="entry[0] === myId">
+              (You)
+            </span>
 
-          <span *ngIf="entry[0] === room?.hostId">
-            (Host)
-          </span>
+          </li>
 
-          <span *ngIf="entry[0] === myId">
-            (You)
-          </span>
+        </ul>
 
-        </li>
-
-      </ul>
-
-      <!-- WAITING STATE -->
-      <ng-container *ngIf="room?.status === 'waiting'">
+        <!-- WAITING STATE -->
 
         <p
           class="waiting-message"
@@ -184,13 +190,15 @@
 
       </ng-container>
 
+      <!-- END OF WAITING LOBBY -->
+
       <!-- READY STATE -->
+
       <div *ngIf="isReady" class="ready-panel">
 
         <h3>Game Ready!</h3>
 
         <p>
-          The host started the game.
           Player order has been randomized.
         </p>
 
@@ -206,13 +214,13 @@
 
         <p>
           All four players are ready.
-          The host can now deal the cards
-          and begin Round 1.
+          The host can now begin Round 1.
         </p>
 
       </div>
 
       <!-- DEAL FIRST ROUND -->
+
       <div *ngIf="isReady" class="deal-panel">
 
         <button
@@ -232,6 +240,7 @@
       </div>
 
       <!-- LEGACY DEALING STATE -->
+
       <div *ngIf="room?.status === 'dealing'">
 
         <p>
@@ -242,43 +251,8 @@
 
       </div>
 
-      <!-- GAME UTILITIES -->
-      <div
-        class="game-utilities"
-        *ngIf="
-          isReady ||
-          room?.status === 'playing' ||
-          isGameComplete
-        ">
-
-        <button
-          type="button"
-          class="secondary recovery-button"
-          (click)="recoverGame()"
-          [disabled]="!canRecoverGame">
-
-          Recover Game
-
-        </button>
-
-        <button
-          type="button"
-          class="secondary diagnostic-button"
-          (click)="debugGameState()"
-          [disabled]="busy">
-
-          Check Game State
-
-        </button>
-
-        <p class="recovery-hint">
-          Use Recover Game if the cards, turns,
-          or scores appear out of sync.
-        </p>
-
-      </div>
-
       <!-- ROUND PANEL -->
+
       <div
         *ngIf="
           room?.status === 'playing' ||
@@ -287,6 +261,7 @@
         class="round-panel">
 
         <!-- ROUND PROGRESS -->
+
         <div class="round-progress-panel">
 
           <div class="round-progress-header">
@@ -340,6 +315,7 @@
         </div>
 
         <!-- SYNCHRONIZATION MESSAGE -->
+
         <div
           *ngIf="
             (isPredicting || isPlaying) &&
@@ -355,9 +331,11 @@
         </div>
 
         <!-- PREDICTION PHASE -->
+
         <ng-container *ngIf="isPredicting">
 
           <!-- PRIVATE HAND -->
+
           <div class="prediction-hand-panel">
 
             <h4>
@@ -384,6 +362,7 @@
           </div>
 
           <!-- ROTATING PREDICTION ORDER -->
+
           <div class="prediction-order-panel">
 
             <h4>Prediction Order</h4>
@@ -414,11 +393,21 @@
                 <div class="prediction-player-info">
 
                   <strong>
+
                     {{ getPlayerName(uid) }}
 
                     <span *ngIf="uid === myId">
                       (You)
                     </span>
+
+                    <span
+                      class="seat-player-score"
+                      title="Total score">
+
+                      {{ getPlayerTotalScore(uid) }}
+
+                    </span>
+
                   </strong>
 
                   <small *ngIf="i === 0">
@@ -453,6 +442,7 @@
           </div>
 
           <!-- PREDICTION TURN -->
+
           <div
             class="turn-banner"
             [class.my-turn]="isMyTurn"
@@ -470,6 +460,7 @@
           </div>
 
           <!-- SUBMIT PREDICTION -->
+
           <div
             *ngIf="isMyTurn"
             class="prediction-input-panel">
@@ -522,6 +513,7 @@
         </ng-container>
 
         <!-- CARD PLAYING PHASE -->
+
         <div
           *ngIf="
             isPlaying ||
@@ -531,6 +523,7 @@
           class="gameplay-panel">
 
           <!-- TRICK HEADER -->
+
           <div class="trick-header">
 
             <h3>
@@ -545,6 +538,7 @@
           </div>
 
           <!-- TURN INDICATOR -->
+
           <div
             *ngIf="isPlaying"
             class="turn-banner"
@@ -578,6 +572,7 @@
           </div>
 
           <!-- FOUR PLAYER CARD TABLE -->
+
           <div class="card-table">
 
             <div
@@ -596,15 +591,31 @@
                 isLastTrickWinner(uid)
               ">
 
+              <!-- PLAYER NAME AND TOTAL SCORE -->
+
               <div class="seat-player-name">
+
                 <span class="seat-name">
+
                   {{ getPlayerName(uid) }}
+
+                  <span *ngIf="uid === myId">
+                    (You)
+                  </span>
+
                 </span>
-              
-                <span class="seat-player-score">
+
+                <span
+                  class="seat-player-score"
+                  title="Total score">
+
                   {{ getPlayerTotalScore(uid) }}
+
                 </span>
+
               </div>
+
+              <!-- PREDICTION AND TRICKS WON -->
 
               <div class="seat-player-stats">
 
@@ -619,6 +630,7 @@
               </div>
 
               <!-- PLAYED CARD -->
+
               <ng-container
                 *ngIf="
                   (
@@ -669,6 +681,7 @@
             </div>
 
             <!-- TABLE CENTER -->
+
             <div class="table-center">
 
               <div class="table-trump">
@@ -704,6 +717,7 @@
           </div>
 
           <!-- LAST TRICK RESULT -->
+
           <div
             *ngIf="lastTrickWinner"
             class="trick-result"
@@ -719,6 +733,7 @@
           </div>
 
           <!-- PRIVATE PLAYER HAND -->
+
           <div
             *ngIf="isPlaying"
             class="hand-panel">
@@ -781,6 +796,7 @@
           </div>
 
           <!-- ROUND COMPLETION -->
+
           <div
             *ngIf="
               isRoundComplete ||
@@ -836,208 +852,250 @@
 
           </div>
 
-          <!-- SCOREBOARD -->
-         <!-- ROUND-BY-ROUND SCORECARD -->
+        </div>
 
-<div
-class="scoreboard-panel"
-*ngIf="scorecardPlayerIds.length === 4"
->
-<div class="scorecard-header">
-  <h3>Game Scorecard</h3>
+        <!-- END OF GAMEPLAY PANEL -->
 
-  <span class="scorecard-round-badge">
-    Round {{ currentRoundNumber }} of {{ maxRounds }}
-  </span>
-</div>
+        <!-- NEXT ROUND CONTROLS -->
 
-<div class="scoreboard-wrapper">
-  <table class="scoreboard round-scorecard">
+        <div
+          *ngIf="
+            isRoundComplete &&
+            !isGameComplete &&
+            currentRoundNumber < maxRounds
+          "
+          class="next-round-panel">
 
-    <!-- PLAYER HEADERS -->
+          <h3>
+            Ready for Round {{ nextRoundNumber }}?
+          </h3>
 
-    <thead>
-      <tr>
-        <th class="round-column">Round</th>
+          <p>
 
-        <th
-          *ngFor="let uid of scorecardPlayerIds"
-          [class.my-score-column]="uid === myId"
-          [class.leader-column]="isScorecardLeader(uid)"
-        >
-          <div class="scorecard-player-name">
-            {{ getPlayerName(uid) }}
+            Each player will receive
+            {{ nextRoundNumber }}
+
+            {{ nextRoundNumber === 1
+              ? 'card'
+              : 'cards' }}.
+
+          </p>
+
+          <p>
+            The starting player will rotate
+            for the next round.
+          </p>
+
+          <button
+            *ngIf="isHost"
+            type="button"
+            class="next-round-button"
+            (click)="deal()"
+            [disabled]="!canDealNextRound">
+
+            {{ busy
+              ? 'Please wait...'
+              : 'Deal Round ' + nextRoundNumber }}
+
+          </button>
+
+          <p
+            *ngIf="!isHost"
+            class="next-round-waiting"
+            aria-live="polite">
+
+            Waiting for the host to start
+            Round {{ nextRoundNumber }}...
+
+          </p>
+
+        </div>
+
+        <!-- ROUND-BY-ROUND SCORECARD -->
+
+        <div
+          class="scoreboard-panel"
+          *ngIf="scorecardPlayerIds.length === 4">
+
+          <div class="scorecard-header">
+
+            <h3>Game Scorecard</h3>
+
+            <span class="scorecard-round-badge">
+              Round {{ currentRoundNumber }}
+              of {{ maxRounds }}
+            </span>
+
           </div>
 
-          <span
-            *ngIf="uid === myId"
-            class="scorecard-you-label"
-          >
-            (You)
-          </span>
-        </th>
-      </tr>
-    </thead>
+          <div class="scoreboard-wrapper">
 
-    <!-- ALL 13 ROUNDS -->
+            <table class="scoreboard round-scorecard">
 
-    <tbody>
-      <tr
-        *ngFor="let round of scorecardRounds"
-        [class.completed-round]="
-          isScorecardRoundComplete(round)
-        "
-        [class.current-round]="
-          round === currentRoundNumber &&
-          !isScorecardRoundComplete(round)
-        "
-        [class.pending-round]="
-          round > currentRoundNumber
-        "
-      >
-        <td class="round-column">
-          <span
-            *ngIf="
-              round === currentRoundNumber &&
-              !isScorecardRoundComplete(round)
-            "
-            class="current-round-indicator"
-          >
-            ▶
-          </span>
+              <!-- PLAYER HEADERS -->
 
-          Round {{ round }}
-        </td>
+              <thead>
 
-        <td
-          *ngFor="let uid of scorecardPlayerIds"
-          [class.my-score-column]="uid === myId"
-          [class.earned-score]="
-            (getHistoricalRoundScore(round, uid) ?? 0) > 0
-          "
-          [class.zero-score]="
-            getHistoricalRoundScore(round, uid) === 0
-          "
-          [class.pending-score]="
-            getHistoricalRoundScore(round, uid) === null
-          "
-        >
-          {{ getHistoricalRoundScore(round, uid) ?? '—' }}
-        </td>
-      </tr>
-    </tbody>
+                <tr>
 
-    <!-- AUTOMATIC CUMULATIVE TOTAL -->
+                  <th class="round-column">
+                    Round
+                  </th>
 
-    <tfoot>
-      <tr class="scorecard-total-row">
-        <td class="round-column">
-          Total
-        </td>
+                  <th
+                    *ngFor="let uid of scorecardPlayerIds"
+                    [class.my-score-column]="uid === myId"
+                    [class.leader-column]="
+                      isScorecardLeader(uid)
+                    ">
 
-        <td
-          *ngFor="let uid of scorecardPlayerIds"
-          [class.my-score-column]="uid === myId"
-          [class.leader-total]="isScorecardLeader(uid)"
-        >
-          <span class="scorecard-total-value">
-            {{ getScorecardTotal(uid) }}
-          </span>
+                    <div class="scorecard-player-name">
+                      {{ getPlayerName(uid) }}
+                    </div>
 
-          <span
-            *ngIf="isScorecardLeader(uid)"
-            class="scorecard-leader-icon"
-          >
-            🏆
-          </span>
-        </td>
-      </tr>
-    </tfoot>
+                    <span
+                      *ngIf="uid === myId"
+                      class="scorecard-you-label">
 
-  </table>
-</div>
+                      (You)
 
-<!-- SCORECARD LEGEND -->
+                    </span>
 
-  <div class="scorecard-legend">
-    <span>
-      <span class="legend-earned">21</span>
-      Correct prediction
-    </span>
+                  </th>
 
-    <span>
-      <span class="legend-zero">0</span>
-      Missed prediction
-    </span>
+                </tr>
 
-    <span>
-      <span class="legend-pending">—</span>
-      Pending
-    </span>
+              </thead>
 
-    <span>
-      🏆 Leader
-    </span>
-  </div>
-  </div>
+              <!-- ALL 13 ROUNDS -->
 
-          <!-- NEXT ROUND -->
-          <div
-            *ngIf="
-              isRoundComplete &&
-              !isGameComplete &&
-              currentRoundNumber < maxRounds
-            "
-            class="next-round-panel">
+              <tbody>
 
-            <h3>
-              Ready for Round {{ nextRoundNumber }}?
-            </h3>
+                <tr
+                  *ngFor="let round of scorecardRounds"
+                  [class.completed-round]="
+                    isScorecardRoundComplete(round)
+                  "
+                  [class.current-round]="
+                    round === currentRoundNumber &&
+                    !isScorecardRoundComplete(round)
+                  "
+                  [class.pending-round]="
+                    round > currentRoundNumber
+                  ">
 
-            <p>
+                  <td class="round-column">
 
-              Each player will receive
-              {{ nextRoundNumber }}
+                    <span
+                      *ngIf="
+                        round === currentRoundNumber &&
+                        !isScorecardRoundComplete(round)
+                      "
+                      class="current-round-indicator">
 
-              {{ nextRoundNumber === 1
-                ? 'card'
-                : 'cards' }}.
+                      ▶
 
-            </p>
+                    </span>
 
-            <p>
-              The starting player will rotate
-              for the next round.
-            </p>
+                    Round {{ round }}
 
-            <button
-              *ngIf="isHost"
-              type="button"
-              class="next-round-button"
-              (click)="deal()"
-              [disabled]="!canDealNextRound">
+                  </td>
 
-              {{ busy
-                ? 'Please wait...'
-                : 'Deal Round ' + nextRoundNumber }}
+                  <td
+                    *ngFor="let uid of scorecardPlayerIds"
+                    [class.my-score-column]="uid === myId"
+                    [class.earned-score]="
+                      (getHistoricalRoundScore(round, uid)
+                        ?? 0) > 0
+                    "
+                    [class.zero-score]="
+                      getHistoricalRoundScore(round, uid)
+                        === 0
+                    "
+                    [class.pending-score]="
+                      getHistoricalRoundScore(round, uid)
+                        === null
+                    ">
 
-            </button>
+                    {{ getHistoricalRoundScore(round, uid)
+                      ?? '—' }}
 
-            <p
-              *ngIf="!isHost"
-              class="next-round-waiting"
-              aria-live="polite">
+                  </td>
 
-              Waiting for the host to start
-              Round {{ nextRoundNumber }}...
+                </tr>
 
-            </p>
+              </tbody>
+
+              <!-- AUTOMATIC CUMULATIVE TOTAL -->
+
+              <tfoot>
+
+                <tr class="scorecard-total-row">
+
+                  <td class="round-column">
+                    Total
+                  </td>
+
+                  <td
+                    *ngFor="let uid of scorecardPlayerIds"
+                    [class.my-score-column]="uid === myId"
+                    [class.leader-total]="
+                      isScorecardLeader(uid)
+                    ">
+
+                    <span class="scorecard-total-value">
+
+                      {{ getScorecardTotal(uid) }}
+
+                    </span>
+
+                    <span
+                      *ngIf="isScorecardLeader(uid)"
+                      class="scorecard-leader-icon">
+
+                      🏆
+
+                    </span>
+
+                  </td>
+
+                </tr>
+
+              </tfoot>
+
+            </table>
+
+          </div>
+
+          <!-- SCORECARD LEGEND -->
+
+          <div class="scorecard-legend">
+
+            <span>
+              <span class="legend-earned">21</span>
+              Correct prediction
+            </span>
+
+            <span>
+              <span class="legend-zero">0</span>
+              Missed prediction
+            </span>
+
+            <span>
+              <span class="legend-pending">—</span>
+              Pending
+            </span>
+
+            <span>
+              🏆 Leader
+            </span>
 
           </div>
 
         </div>
 
         <!-- FINAL GAME RESULTS -->
+
         <div
           *ngIf="isGameComplete"
           class="game-complete-panel">
@@ -1059,6 +1117,7 @@ class="scoreboard-panel"
             </p>
 
             <!-- SINGLE WINNER -->
+
             <ng-container *ngIf="!isTie">
 
               <h3
@@ -1079,6 +1138,7 @@ class="scoreboard-panel"
             </ng-container>
 
             <!-- TIED WINNERS -->
+
             <ng-container *ngIf="isTie">
 
               <h3 class="winner-message">
@@ -1110,6 +1170,7 @@ class="scoreboard-panel"
           </div>
 
           <!-- FINAL LEADERBOARD -->
+
           <div class="final-leaderboard">
 
             <h3>Final Leaderboard</h3>
@@ -1169,6 +1230,7 @@ class="scoreboard-panel"
           </div>
 
           <!-- FINAL PERSONAL SCORE -->
+
           <div class="final-personal-score">
 
             <span>Your Final Score</span>
@@ -1178,6 +1240,7 @@ class="scoreboard-panel"
           </div>
 
           <!-- RETURN TO LOBBY -->
+
           <div class="final-game-actions">
 
             <button
@@ -1196,9 +1259,47 @@ class="scoreboard-panel"
 
       </div>
 
+      <!-- END OF ROUND PANEL -->
+
+      <!-- GAME UTILITIES: MOVED TO BOTTOM -->
+
+      <div
+        class="game-utilities"
+        *ngIf="
+          isReady ||
+          room?.status === 'playing' ||
+          isGameComplete
+        ">
+
+        <button
+          type="button"
+          class="secondary recovery-button"
+          (click)="recoverGame()"
+          [disabled]="!canRecoverGame">
+
+          Recover Game
+
+        </button>
+
+        <button
+          type="button"
+          class="secondary diagnostic-button"
+          (click)="debugGameState()"
+          [disabled]="busy">
+
+          Check Game State
+
+        </button>
+
+        <p class="recovery-hint">
+          Use Recover Game if the cards, turns,
+          or scores appear out of sync.
+        </p>
+
+      </div>
+
     </div>
 
   </ng-template>
-
 
 </section>
