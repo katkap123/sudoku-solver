@@ -8,7 +8,7 @@ import {
 
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-
+import { TurnSoundService } from '../../services/turn-sound.service';
 import {
   CardGameService,
   CardRoom,
@@ -28,7 +28,9 @@ import {
 export class CardGameComponent implements OnDestroy {
 
   private game = inject(CardGameService);
+  private readonly turnSound = inject(TurnSoundService);
 
+  private lastNotifiedTurnKey = '';
   readonly maxRounds = 13;
   private readonly cdr = inject(ChangeDetectorRef);
   private readonly ngZone = inject(NgZone);
@@ -72,6 +74,58 @@ export class CardGameComponent implements OnDestroy {
 
   private unsubscribe?: () => void;
   private unsubscribeHand?: () => void;
+
+  private checkTurnNotification(): void {
+
+    if (!this.room || !this.myId) {
+      return;
+    }
+  
+    // Do not play during trick celebration.
+    if (this.isCelebrationBlockingActions) {
+      return;
+    }
+  
+    // Do not play after game completion.
+    if (this.isGameComplete || this.isRoundComplete) {
+      return;
+    }
+  
+    // Wait until the private hand is synchronized.
+    if (!this.isHandSynchronized) {
+      return;
+    }
+  
+    const isPredictionTurn =
+      this.isPredicting && this.isMyTurn;
+  
+    const isPlayingTurn =
+      this.isPlaying && this.isMyPlayTurn;
+  
+    // Notify only the current player.
+    if (!isPredictionTurn && !isPlayingTurn) {
+      return;
+    }
+  
+    // Generate a unique identifier for this turn.
+    const turnKey = [
+      this.room.code,
+      this.room.roundNumber ?? 0,
+      this.room.phase,
+      this.room.trickNumber ?? 0,
+      this.room.currentPlayerId
+    ].join(':');
+  
+    // Prevent duplicate notifications.
+    if (this.lastNotifiedTurnKey === turnKey) {
+      return;
+    }
+  
+    this.lastNotifiedTurnKey = turnKey;
+  
+    // Play the soft beep.
+    this.turnSound.playTurnSound();
+  }
 
   // ------------------------------------------------
   // PLAYER AND ROOM INFORMATION
@@ -195,7 +249,9 @@ export class CardGameComponent implements OnDestroy {
     this.celebrationTimers = [];
   }
   
-  private finishTrickCelebration(): void {
+  private finishTrickCelebration(
+    notifyNextTurn = false
+  ): void {
   
     this.clearCelebrationTimers();
   
@@ -212,6 +268,10 @@ export class CardGameComponent implements OnDestroy {
     this.celebrationRoundNumber = 0;
   
     this.cdr.markForCheck();
+  
+    if (notifyNextTurn) {
+      this.checkTurnNotification();
+    }
   }
   
   private resetTrickCelebration(): void {
@@ -352,10 +412,29 @@ export class CardGameComponent implements OnDestroy {
   
     // Finish the celebration.
     this.scheduleCelebrationTimer(() => {
-  
-      this.finishTrickCelebration();
-  
+      this.finishTrickCelebration(true);
     }, remainingMs);
+  
+    this.cdr.markForCheck();
+  }
+
+  get isSoundEnabled(): boolean {
+    return this.turnSound.isEnabled;
+  }
+  
+  async toggleSound(): Promise<void> {
+  
+    const enabled = !this.turnSound.isEnabled;
+  
+    this.turnSound.setEnabled(enabled);
+  
+    if (enabled) {
+  
+      await this.turnSound.initialize();
+  
+      // Preview sound when enabled.
+      this.turnSound.playTurnSound();
+    }
   
     this.cdr.markForCheck();
   }
@@ -1089,7 +1168,7 @@ export class CardGameComponent implements OnDestroy {
 
         this.room = room;
         this.syncTrickCelebration(this.room);
-
+        this.checkTurnNotification();
         const currentRound =
           room.roundNumber ?? 0;
 
@@ -1115,8 +1194,9 @@ export class CardGameComponent implements OnDestroy {
 
               hand => {
                 this.hand = hand;
+                this.checkTurnNotification();
               },
-
+              
               message => {
                 this.error =
                   `Unable to load cards: ${message}`;
@@ -1141,6 +1221,7 @@ export class CardGameComponent implements OnDestroy {
         this.disconnect();
         this.error = message;
       }
+      
     );
   }
 
@@ -1197,7 +1278,7 @@ export class CardGameComponent implements OnDestroy {
   // ------------------------------------------------
 
   create(): void {
-
+    void this.turnSound.initialize();
     void this.execute(async () => {
 
       const code =
@@ -1210,7 +1291,7 @@ export class CardGameComponent implements OnDestroy {
   }
 
   join(): void {
-
+    void this.turnSound.initialize();
     void this.execute(async () => {
 
       const code =
@@ -1283,7 +1364,7 @@ export class CardGameComponent implements OnDestroy {
 
   returnToLobby(): void {
     this.resetTrickCelebration();
-
+    this.lastNotifiedTurnKey = '';
     if (!this.isGameComplete || this.busy) {
       return;
     }
@@ -1326,6 +1407,7 @@ export class CardGameComponent implements OnDestroy {
   // ------------------------------------------------
 
   ngOnDestroy(): void {
+    this.lastNotifiedTurnKey = '';
     this.resetTrickCelebration();
     this.unsubscribeHand?.();
     this.unsubscribe?.();

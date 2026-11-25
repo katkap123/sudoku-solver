@@ -524,18 +524,44 @@
 
           <!-- TRICK HEADER -->
 
-          <div class="trick-header">
+          
+      <div class="trick-header">
 
-            <h3>
-              Trick {{ displayTrickNumber }}
-              of {{ currentRoundNumber }}
-            </h3>
+        <h3>
+          Trick {{ displayTrickNumber }} of {{ currentRoundNumber }}
+        </h3>
 
-            <span class="trump-indicator">
-              Trump: ♥ Hearts
+        <div class="trick-header-controls">
+
+          <div class="trump-indicator">
+            ♥ Trump: Hearts
+          </div>
+
+          <button
+            type="button"
+            class="sound-toggle"
+            [class.sound-enabled]="isSoundEnabled"
+            [class.sound-disabled]="!isSoundEnabled"
+            [attr.aria-pressed]="isSoundEnabled"
+            aria-label="Turn notification sound"
+            [attr.title]="isSoundEnabled
+              ? 'Mute turn notifications'
+              : 'Enable turn notifications'"
+            (click)="toggleSound()">
+
+            <span class="sound-icon" aria-hidden="true">
+              {{ isSoundEnabled ? '🔊' : '🔇' }}
             </span>
 
-          </div>
+            <span>
+              {{ isSoundEnabled ? 'Sound On' : 'Sound Off' }}
+            </span>
+
+          </button>
+
+        </div>
+
+      </div>
 
 
           <!-- TURN INDICATOR -->
