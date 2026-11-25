@@ -3,7 +3,8 @@ import {
   inject,
   OnDestroy,
   ChangeDetectorRef,
-  NgZone
+  NgZone,
+  HostListener
 } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
@@ -81,50 +82,52 @@ export class CardGameComponent implements OnDestroy {
       return;
     }
   
-    // Do not play during trick celebration.
+    if (!this.turnSound.isEnabled) {
+      return;
+    }
+  
     if (this.isCelebrationBlockingActions) {
       return;
     }
   
-    // Do not play after game completion.
     if (this.isGameComplete || this.isRoundComplete) {
       return;
     }
   
-    // Wait until the private hand is synchronized.
     if (!this.isHandSynchronized) {
       return;
     }
   
     const isPredictionTurn =
-      this.isPredicting && this.isMyTurn;
+      this.isPredicting &&
+      this.room.currentPlayerId === this.myId;
   
     const isPlayingTurn =
-      this.isPlaying && this.isMyPlayTurn;
+      this.isPlaying &&
+      this.room.currentPlayerId === this.myId;
   
-    // Notify only the current player.
     if (!isPredictionTurn && !isPlayingTurn) {
       return;
     }
   
-    // Generate a unique identifier for this turn.
     const turnKey = [
       this.room.code,
+      this.myId,
       this.room.roundNumber ?? 0,
       this.room.phase,
       this.room.trickNumber ?? 0,
       this.room.currentPlayerId
     ].join(':');
   
-    // Prevent duplicate notifications.
     if (this.lastNotifiedTurnKey === turnKey) {
       return;
     }
   
-    this.lastNotifiedTurnKey = turnKey;
+    const soundPlayed = this.turnSound.playTurnSound();
   
-    // Play the soft beep.
-    this.turnSound.playTurnSound();
+    if (soundPlayed) {
+      this.lastNotifiedTurnKey = turnKey;
+    }
   }
 
   // ------------------------------------------------
@@ -208,6 +211,24 @@ export class CardGameComponent implements OnDestroy {
       this.isTrickCelebrating &&
       this.celebrationWinnerUid === uid
     );
+  }
+
+  @HostListener('document:click')
+  @HostListener('document:keydown')
+  async unlockTurnAudio(): Promise<void> {
+
+    if (!this.turnSound.isEnabled) {
+      return;
+    }
+
+    if (!this.turnSound.isReady) {
+
+      const ready = await this.turnSound.initialize();
+
+      if (ready) {
+        this.checkTurnNotification();
+      }
+    }
   }
   
   getCelebrationCard(uid: string): PlayingCard | null {

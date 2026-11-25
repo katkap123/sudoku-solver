@@ -1,4 +1,3 @@
-
 import { Injectable } from '@angular/core';
 
 @Injectable({
@@ -25,7 +24,12 @@ export class TurnSoundService {
     return this.enabled;
   }
 
+  get isReady(): boolean {
+    return this.audioContext?.state === 'running';
+  }
+
   setEnabled(enabled: boolean): void {
+
     this.enabled = enabled;
 
     try {
@@ -34,52 +38,70 @@ export class TurnSoundService {
         String(enabled)
       );
     } catch {
-      // Sound preference remains available in memory.
+      // Storage unavailable
     }
   }
 
-  async initialize(): Promise<void> {
+  async initialize(): Promise<boolean> {
+
     try {
+
       if (!this.audioContext) {
+
         const AudioContextClass =
           window.AudioContext ||
           (window as any).webkitAudioContext;
 
         if (!AudioContextClass) {
-          return;
+          return false;
         }
 
         this.audioContext = new AudioContextClass();
       }
 
-      if (this.audioContext?.state === 'suspended') {
+      if (
+        this.audioContext &&
+        this.audioContext.state !== 'running' &&
+        this.audioContext.state !== 'closed'
+      ) {
         await this.audioContext.resume();
       }
 
+      return this.isReady;
+
     } catch (error) {
-      console.warn('Unable to initialize game audio', error);
+
+      console.warn(
+        'Unable to initialize game audio',
+        error
+      );
+
+      return false;
     }
   }
 
-  playTurnSound(): void {
+  playTurnSound(): boolean {
 
     if (!this.enabled) {
-      return;
+      return false;
     }
 
     const context = this.audioContext;
 
     if (!context || context.state !== 'running') {
-      return;
+      return false;
     }
 
     try {
+
       const oscillator = context.createOscillator();
+
       const gain = context.createGain();
 
       const now = context.currentTime;
 
       oscillator.type = 'sine';
+
       oscillator.frequency.setValueAtTime(880, now);
 
       gain.gain.setValueAtTime(0.001, now);
@@ -95,6 +117,7 @@ export class TurnSoundService {
       );
 
       oscillator.connect(gain);
+
       gain.connect(context.destination);
 
       oscillator.onended = () => {
@@ -103,10 +126,19 @@ export class TurnSoundService {
       };
 
       oscillator.start(now);
+
       oscillator.stop(now + 0.22);
 
+      return true;
+
     } catch (error) {
-      console.warn('Unable to play turn sound', error);
+
+      console.warn(
+        'Unable to play turn sound',
+        error
+      );
+
+      return false;
     }
   }
 }
