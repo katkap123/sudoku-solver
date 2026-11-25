@@ -14,6 +14,8 @@ const db = admin.database();
 const REGION = "us-central1";
 const MAX_PLAYERS = 4;
 const MAX_ROUNDS = 13;
+const TRICK_CELEBRATION_DURATION_MS = 4000;
+
 const CODE_LENGTH = 6;
 const CODE_CHARS = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
@@ -1039,6 +1041,15 @@ exports.dealCardRound = onCall(
                 );
               }
 
+              if (
+                (state.trickCelebrationEndsAt || 0) > Date.now()
+              ) {
+                throw new HttpsError(
+                  "failed-precondition",
+                  "The final trick celebration is in progress. Please wait."
+                );
+              }
+
               // The previous round must be published
               // before creating another round.
               if (
@@ -1098,6 +1109,7 @@ exports.dealCardRound = onCall(
               },
 
               lastTrick: null,
+              trickCelebrationEndsAt: 0,
               completedTricks: [],
 
               tricksWon: {},
@@ -1393,6 +1405,9 @@ async function syncPublicRoom(code, state) {
 
         lastTrick:
           state.lastTrick || null,
+
+        trickCelebrationEndsAt:
+          state.trickCelebrationEndsAt || 0,
 
         roundScores:
           state.roundScores || null,
@@ -1779,6 +1794,17 @@ exports.playCard = onCall(
             return state;
           }
 
+          // Prevent the next trick from starting
+          // until the previous trick celebration ends.
+          if (
+            (state.trickCelebrationEndsAt || 0) > Date.now()
+          ) {
+            throw new HttpsError(
+              "failed-precondition",
+              "Trick celebration is in progress. Please wait."
+            );
+          }
+
           // Verify the game is accepting card plays.
           if (state.phase !== "playing") {
             throw new HttpsError(
@@ -1923,7 +1949,8 @@ exports.playCard = onCall(
 
             // Preserve the most recently completed trick.
             state.lastTrick = completedTrick;
-
+            state.trickCelebrationEndsAt =
+                    Date.now() + TRICK_CELEBRATION_DURATION_MS;
             // Preserve all completed tricks in this round.
             state.completedTricks = [
               ...completedTricks,
@@ -2065,6 +2092,8 @@ exports.playCard = onCall(
         scoreHistory:
           state.scoreHistory || {},
 
+        trickCelebrationEndsAt:
+          state.trickCelebrationEndsAt || 0,
         totalScores:
           state.totalScores || {},
         

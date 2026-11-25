@@ -118,7 +118,7 @@ export interface CardRoom {
   currentTrick?: CardTrick | null;
 
   lastTrick?: CardTrick | null;
-
+  trickCelebrationEndsAt?: number;
   tricksWon?: Record<string, number>;
 
   roundScores?: Record<string, number>;
@@ -200,6 +200,8 @@ export interface PredictionResponse {
 export interface PlayCardResponse {
   code: string;
 
+  trickCelebrationEndsAt?: number;
+
   card: PlayingCard;
 
   roundNumber: number;
@@ -260,6 +262,8 @@ export interface RecoverGameStateResponse {
 export interface GameStateCheckResponse {
   code: string;
 
+  trickCelebrationEndsAt?: number;
+  
   roomStatus: CardRoom['status'];
 
   roomPhase: CardGamePhase;

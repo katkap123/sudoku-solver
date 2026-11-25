@@ -527,7 +527,7 @@
           <div class="trick-header">
 
             <h3>
-              Trick {{ currentTrickNumber }}
+              Trick {{ displayTrickNumber }}
               of {{ currentRoundNumber }}
             </h3>
 
@@ -537,210 +537,459 @@
 
           </div>
 
+
           <!-- TURN INDICATOR -->
 
           <div
-            *ngIf="isPlaying"
-            class="turn-banner"
-            [class.my-turn]="isMyPlayTurn"
-            aria-live="polite">
+          *ngIf="isPlaying && !isTrickCelebrating"
+          class="turn-banner"
+          [class.my-turn]="isMyPlayTurn"
+          aria-live="polite">
 
-            <strong
-              *ngIf="
-                isMyPlayTurn &&
-                isHandSynchronized
+          <strong
+            *ngIf="
+              isMyPlayTurn &&
+              isHandSynchronized
+            ">
+
+            Your turn! Select a card.
+
+          </strong>
+
+          <span
+            *ngIf="
+              isMyPlayTurn &&
+              !isHandSynchronized
+            ">
+
+            Your turn. Synchronizing your cards...
+
+          </span>
+
+          <span *ngIf="!isMyPlayTurn">
+            Waiting for {{ currentPlayerName }}...
+          </span>
+
+          </div>
+
+          <!-- CELEBRATION TURN INDICATOR -->
+
+          <div
+          *ngIf="isTrickCelebrating"
+          class="turn-banner celebration-banner"
+          aria-live="polite">
+
+          <strong *ngIf="celebrationPhase === 'collecting'">
+            Revealing all four cards...
+          </strong>
+
+          <strong *ngIf="celebrationPhase === 'celebrating'">
+            🏆 {{ celebrationWinnerName }} wins
+            Trick {{ celebrationTrickNumber }}!
+          </strong>
+
+          <strong *ngIf="celebrationPhase === 'clearing'">
+
+            {{ isGameComplete
+              ? 'Preparing final results...'
+              : isRoundComplete
+                ? 'Round complete!'
+                : celebrationWinnerName + ' leads the next trick!' }}
+
+          </strong>
+
+          </div>
+
+          
+      <!-- FOUR PLAYER CARD TABLE -->
+
+      <div
+      class="card-table"
+      [class.trick-celebrating]="isTrickCelebrating"
+      [class.trick-collecting]="
+        celebrationPhase === 'collecting'
+      "
+      [class.trick-clearing]="
+        celebrationPhase === 'clearing'
+      ">
+
+      <!-- FOUR PLAYER SEATS -->
+
+      <div
+        *ngFor="
+          let uid of tablePlayerOrder;
+          let i = index
+        "
+        class="table-seat"
+        [class.seat-bottom]="i === 0"
+        [class.seat-left]="i === 1"
+        [class.seat-top]="i === 2"
+        [class.seat-right]="i === 3"
+        [class.active-seat]="
+          !isTrickCelebrating &&
+          isCurrentPlayer(uid)
+        "
+        [class.winner-seat]="
+          (
+            isTrickCelebrating &&
+            celebrationPhase !== 'collecting' &&
+            isCelebrationWinner(uid)
+          ) ||
+          (
+            !isTrickCelebrating &&
+            (isRoundComplete || isGameComplete) &&
+            isLastTrickWinner(uid)
+          )
+        "
+        [class.celebration-winner-seat]="
+          isCelebrationWinner(uid) &&
+          celebrationPhase === 'celebrating'
+        ">
+
+        <!-- PLAYER NAME AND SCORE -->
+
+        <div class="seat-player-name">
+
+          <span class="seat-name">
+
+            {{ getPlayerName(uid) }}
+
+            <span *ngIf="uid === myId">
+              (You)
+            </span>
+
+          </span>
+
+          <span
+            class="seat-player-score"
+            title="Total score">
+
+            {{ getPlayerTotalScore(uid) }}
+
+          </span>
+
+        </div>
+
+        <!-- PLAYER PREDICTION AND TRICKS WON -->
+
+        <div class="seat-player-stats">
+
+          <span>
+            Bid: {{ getPlayerPrediction(uid) ?? '-' }}
+          </span>
+
+          <span>
+            Won: {{ getPlayerTricksWon(uid) }}
+          </span>
+
+        </div>
+
+        <!-- NORMAL PLAYED CARD -->
+
+        <ng-container *ngIf="!isTrickCelebrating">
+
+          <ng-container
+            *ngIf="
+              (
+                isRoundComplete || isGameComplete
+                  ? getLastPlayedCard(uid)
+                  : getPlayedCard(uid)
+              ) as playedCard;
+              else emptyCard
+            ">
+
+            <div
+              class="playing-card table-card"
+              [class.red-card]="isRedCard(playedCard)">
+
+              {{ cardLabel(playedCard) }}
+
+            </div>
+
+          </ng-container>
+
+          <ng-template #emptyCard>
+
+            <div class="empty-card">
+              ?
+            </div>
+
+          </ng-template>
+
+        </ng-container>
+
+        <!-- PRESERVE SEAT SPACE DURING CELEBRATION -->
+
+        <div
+          *ngIf="isTrickCelebrating"
+          class="celebration-card-placeholder"
+          aria-hidden="true">
+        </div>
+
+        <!-- NORMAL TURN LABEL -->
+
+        <span
+          *ngIf="
+            !isTrickCelebrating &&
+            isCurrentPlayer(uid)
+          "
+          class="seat-turn-label">
+
+          Playing
+
+        </span>
+
+        <!-- WINNER LABEL -->
+
+        <span
+          *ngIf="
+            (
+              isCelebrationWinner(uid) &&
+              celebrationPhase !== 'collecting'
+            ) ||
+            (
+              !isTrickCelebrating &&
+              (isRoundComplete || isGameComplete) &&
+              isLastTrickWinner(uid)
+            )
+          "
+          class="seat-winner-label">
+
+          🏆 Trick Winner
+
+        </span>
+
+        <!-- WINNER CONFETTI -->
+
+        <div
+          *ngIf="
+            isCelebrationWinner(uid) &&
+            celebrationPhase === 'celebrating'
+          "
+          class="winner-confetti"
+          aria-hidden="true">
+
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+          <span class="confetti-piece"></span>
+
+        </div>
+
+      </div>
+
+      <!-- NORMAL TABLE CENTER -->
+
+      <div
+        class="table-center"
+        *ngIf="!isTrickCelebrating">
+
+        <div class="table-trump">
+          ♥
+        </div>
+
+        <strong>
+
+          {{ isGameComplete
+            ? 'Game Complete'
+            : isRoundComplete
+              ? 'Round Complete'
+              : 'Current Trick' }}
+
+        </strong>
+
+        <span *ngIf="isPlaying">
+          {{ currentTrickPlays.length }}/4 cards
+        </span>
+
+        <span
+          *ngIf="
+            isRoundComplete ||
+            isGameComplete
+          ">
+
+          {{ lastTrickWinner }} wins the trick
+
+        </span>
+
+      </div>
+
+      <!-- COMPLETED TRICK CELEBRATION -->
+
+      <div
+        *ngIf="isTrickCelebrating"
+        class="trick-celebration-overlay"
+        [class.phase-collecting]="
+          celebrationPhase === 'collecting'
+        "
+        [class.phase-celebrating]="
+          celebrationPhase === 'celebrating'
+        "
+        [class.phase-clearing]="
+          celebrationPhase === 'clearing'
+        "
+        [attr.data-winner-seat]="
+          celebrationWinnerUid
+            ? getCelebrationSeatIndex(celebrationWinnerUid)
+            : -1
+        ">
+
+        <!-- ALL FOUR COMPLETED CARDS -->
+
+        <div class="celebration-cards">
+
+          <div
+            *ngFor="
+              let play of celebrationPlays;
+              let cardIndex = index
+            "
+            class="celebration-card-item"
+            [class.winning-card-item]="
+              isCelebrationWinner(play.uid)
+            "
+            [attr.data-seat]="
+              getCelebrationSeatIndex(play.uid)
+            "
+            [style.--card-index]="cardIndex">
+
+            <!-- CARD OWNER -->
+
+            <span class="celebration-player-name">
+
+              {{ getPlayerName(play.uid) }}
+
+              <span *ngIf="play.uid === myId">
+                (You)
+              </span>
+
+            </span>
+
+            <!-- COMPLETED CARD -->
+
+            <div
+              class="playing-card celebration-card"
+              [class.red-card]="isRedCard(play.card)"
+              [class.winning-card]="
+                isCelebrationWinner(play.uid) &&
+                celebrationPhase !== 'collecting'
               ">
 
-              Your turn! Select a card.
+              {{ cardLabel(play.card) }}
 
-            </strong>
+            </div>
+
+            <!-- WINNING CARD INDICATOR -->
 
             <span
               *ngIf="
-                isMyPlayTurn &&
-                !isHandSynchronized
-              ">
-
-              Your turn. Synchronizing your cards...
-
-            </span>
-
-            <span *ngIf="!isMyPlayTurn">
-              Waiting for {{ currentPlayerName }}...
-            </span>
-
-          </div>
-
-          <!-- FOUR PLAYER CARD TABLE -->
-
-          <div class="card-table">
-
-            <div
-              *ngFor="
-                let uid of tablePlayerOrder;
-                let i = index
+                isCelebrationWinner(play.uid) &&
+                celebrationPhase !== 'collecting'
               "
-              class="table-seat"
-              [class.seat-bottom]="i === 0"
-              [class.seat-left]="i === 1"
-              [class.seat-top]="i === 2"
-              [class.seat-right]="i === 3"
-              [class.active-seat]="isCurrentPlayer(uid)"
-              [class.winner-seat]="
-                (isRoundComplete || isGameComplete) &&
-                isLastTrickWinner(uid)
-              ">
+              class="celebration-card-winner">
 
-              <!-- PLAYER NAME AND TOTAL SCORE -->
+              🏆 Winner
 
-              <div class="seat-player-name">
-
-                <span class="seat-name">
-
-                  {{ getPlayerName(uid) }}
-
-                  <span *ngIf="uid === myId">
-                    (You)
-                  </span>
-
-                </span>
-
-                <span
-                  class="seat-player-score"
-                  title="Total score">
-
-                  {{ getPlayerTotalScore(uid) }}
-
-                </span>
-
-              </div>
-
-              <!-- PREDICTION AND TRICKS WON -->
-
-              <div class="seat-player-stats">
-
-                <span>
-                  Bid: {{ getPlayerPrediction(uid) ?? '-' }}
-                </span>
-
-                <span>
-                  Won: {{ getPlayerTricksWon(uid) }}
-                </span>
-
-              </div>
-
-              <!-- PLAYED CARD -->
-
-              <ng-container
-                *ngIf="
-                  (
-                    isRoundComplete || isGameComplete
-                      ? getLastPlayedCard(uid)
-                      : getPlayedCard(uid)
-                  ) as playedCard;
-                  else emptyCard
-                ">
-
-                <div
-                  class="playing-card table-card"
-                  [class.red-card]="isRedCard(playedCard)">
-
-                  {{ cardLabel(playedCard) }}
-
-                </div>
-
-              </ng-container>
-
-              <ng-template #emptyCard>
-
-                <div class="empty-card">
-                  ?
-                </div>
-
-              </ng-template>
-
-              <span
-                *ngIf="isCurrentPlayer(uid)"
-                class="seat-turn-label">
-
-                Playing
-
-              </span>
-
-              <span
-                *ngIf="
-                  (isRoundComplete || isGameComplete) &&
-                  isLastTrickWinner(uid)
-                "
-                class="seat-winner-label">
-
-                Trick Winner
-
-              </span>
-
-            </div>
-
-            <!-- TABLE CENTER -->
-
-            <div class="table-center">
-
-              <div class="table-trump">
-                ♥
-              </div>
-
-              <strong>
-
-                {{ isGameComplete
-                  ? 'Game Complete'
-                  : isRoundComplete
-                    ? 'Round Complete'
-                    : 'Current Trick' }}
-
-              </strong>
-
-              <span *ngIf="isPlaying">
-                {{ currentTrickPlays.length }}/4 cards
-              </span>
-
-              <span
-                *ngIf="
-                  isRoundComplete ||
-                  isGameComplete
-                ">
-
-                {{ lastTrickWinner }} wins the trick
-
-              </span>
-
-            </div>
+            </span>
 
           </div>
+
+        </div>
+
+        <!-- CELEBRATION RESULT -->
+
+        <div
+          *ngIf="celebrationPhase !== 'collecting'"
+          class="celebration-result"
+          aria-live="polite">
+
+          <div class="celebration-trophy">
+            🏆
+          </div>
+
+          <strong class="celebration-winner-name">
+
+            {{ celebrationWinnerName }}
+
+            <span *ngIf="celebrationWinnerUid === myId">
+              (You)
+            </span>
+
+          </strong>
+
+          <span class="celebration-result-text">
+
+            Wins Trick {{ celebrationTrickNumber }}
+            with {{ celebrationWinningCardLabel }}
+
+          </span>
+
+          <span class="celebration-next-message">
+
+            {{ isGameComplete
+              ? 'All 13 rounds completed!'
+              : isRoundComplete
+                ? 'Round completed!'
+                : 'Winner leads the next trick' }}
+
+          </span>
+
+        </div>
+
+      </div>
+
+      </div>
+
 
           <!-- LAST TRICK RESULT -->
 
           <div
-            *ngIf="lastTrickWinner"
-            class="trick-result"
-            aria-live="polite">
+          *ngIf="lastTrickWinner && !isTrickCelebrating"
+          class="trick-result"
+          aria-live="polite">
 
-            <strong>
+          <strong>
 
-              {{ lastTrickWinner }} won
-              trick {{ room?.lastTrick?.trickNumber }}!
+            🏆 {{ lastTrickWinner }} won
+            trick {{ room?.lastTrick?.trickNumber }}!
 
-            </strong>
+          </strong>
 
           </div>
 
           <!-- PRIVATE PLAYER HAND -->
 
           <div
-            *ngIf="isPlaying"
-            class="hand-panel">
+            *ngIf="isPlaying || isTrickCelebrating"
+            class="hand-panel"
+            [class.hand-celebrating]="isTrickCelebrating">
 
             <h4>
               Your Cards ({{ myCards.length }})
             </h4>
+
+            <p
+              *ngIf="isTrickCelebrating"
+              class="celebration-hand-message">
+
+              Please wait for the trick celebration to finish...
+
+            </p>
 
             <p *ngIf="isMyPlayTurn && leadSuit">
               Follow the lead suit if possible.
@@ -758,7 +1007,10 @@
                 class="playing-card playable-card"
                 [class.red-card]="isRedCard(card)"
                 [class.card-enabled]="canPlayCard(card)"
-                [disabled]="!canPlayCard(card)"
+                [disabled]="
+                    isCelebrationBlockingActions ||
+                    !canPlayCard(card)
+                  "
                 [attr.aria-label]="'Play ' + cardLabel(card)"
                 (click)="playCard(card)">
 
@@ -783,10 +1035,11 @@
             </p>
 
             <p
-              *ngIf="
-                !isMyPlayTurn &&
-                myCards.length > 0
-              ">
+            *ngIf="
+              !isTrickCelebrating &&
+              !isMyPlayTurn &&
+              myCards.length > 0
+            ">
 
               Your cards will become available
               when it is your turn.
@@ -798,11 +1051,11 @@
           <!-- ROUND COMPLETION -->
 
           <div
-            *ngIf="
-              isRoundComplete ||
-              isGameComplete
-            "
-            class="round-complete-panel">
+          *ngIf="
+            !isTrickCelebrating &&
+            (isRoundComplete || isGameComplete)
+          "
+          class="round-complete-panel">
 
             <h3>
               Round {{ currentRoundNumber }} Complete!
@@ -860,6 +1113,7 @@
 
         <div
           *ngIf="
+            !isTrickCelebrating &&
             isRoundComplete &&
             !isGameComplete &&
             currentRoundNumber < maxRounds
@@ -1097,7 +1351,7 @@
         <!-- FINAL GAME RESULTS -->
 
         <div
-          *ngIf="isGameComplete"
+          *ngIf="isGameComplete && !isTrickCelebrating"
           class="game-complete-panel">
 
           <div class="winner-celebration">

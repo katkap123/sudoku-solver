@@ -1,8 +1,9 @@
-
 import {
   Component,
+  inject,
   OnDestroy,
-  inject
+  ChangeDetectorRef,
+  NgZone
 } from '@angular/core';
 
 import { CommonModule } from '@angular/common';
@@ -29,6 +30,28 @@ export class CardGameComponent implements OnDestroy {
   private game = inject(CardGameService);
 
   readonly maxRounds = 13;
+  private readonly cdr = inject(ChangeDetectorRef);
+  private readonly ngZone = inject(NgZone);
+
+  readonly trickCelebrationDurationMs = 4000;
+
+  isTrickCelebrating = false;
+
+  celebrationPlays: CardPlay[] = [];
+
+  celebrationWinnerUid: string | null = null;
+
+  celebrationTrickNumber = 0;
+
+  celebrationRoundNumber = 0;
+
+  celebrationPhase:
+    'idle' | 'collecting' | 'celebrating' | 'clearing' = 'idle';
+
+  private lastCelebratedTrickKey = '';
+
+  private celebrationTimers:
+    ReturnType<typeof setTimeout>[] = [];
 
   readonly scorecardRounds = Array.from(
     { length: this.maxRounds },
@@ -87,6 +110,254 @@ export class CardGameComponent implements OnDestroy {
     return typeof score === 'number'
       ? score
       : null;
+  }
+
+  get celebrationWinnerName(): string {
+    return this.celebrationWinnerUid
+      ? this.getPlayerName(this.celebrationWinnerUid)
+      : '';
+  }
+  
+  get celebrationWinningCard(): PlayingCard | null {
+    return this.celebrationPlays.find(
+      play => play.uid === this.celebrationWinnerUid
+    )?.card ?? null;
+  }
+  
+  get celebrationWinningCardLabel(): string {
+    const card = this.celebrationWinningCard;
+  
+    return card ? this.cardLabel(card) : '';
+  }
+  
+  get isCelebrationWindowActive(): boolean {
+    return (
+      this.room?.trickCelebrationEndsAt ?? 0
+    ) > Date.now();
+  }
+  
+  get isCelebrationBlockingActions(): boolean {
+    return (
+      this.isTrickCelebrating ||
+      this.isCelebrationWindowActive
+    );
+  }
+  
+  get displayTrickNumber(): number {
+    return this.isTrickCelebrating
+      ? this.celebrationTrickNumber
+      : this.currentTrickNumber;
+  }
+
+  isCelebrationWinner(uid: string): boolean {
+    return (
+      this.isTrickCelebrating &&
+      this.celebrationWinnerUid === uid
+    );
+  }
+  
+  getCelebrationCard(uid: string): PlayingCard | null {
+    return this.celebrationPlays.find(
+      play => play.uid === uid
+    )?.card ?? null;
+  }
+  
+  getCelebrationSeatIndex(uid: string): number {
+    return this.tablePlayerOrder.indexOf(uid);
+  }
+
+  private scheduleCelebrationTimer(
+    callback: () => void,
+    delay: number
+  ): void {
+  
+    const timer = setTimeout(() => {
+  
+      this.ngZone.run(() => {
+  
+        callback();
+  
+        this.cdr.markForCheck();
+  
+      });
+  
+    }, Math.max(0, delay));
+  
+    this.celebrationTimers.push(timer);
+  }
+  
+  private clearCelebrationTimers(): void {
+  
+    for (const timer of this.celebrationTimers) {
+      clearTimeout(timer);
+    }
+  
+    this.celebrationTimers = [];
+  }
+  
+  private finishTrickCelebration(): void {
+  
+    this.clearCelebrationTimers();
+  
+    this.isTrickCelebrating = false;
+  
+    this.celebrationPhase = 'idle';
+  
+    this.celebrationPlays = [];
+  
+    this.celebrationWinnerUid = null;
+  
+    this.celebrationTrickNumber = 0;
+  
+    this.celebrationRoundNumber = 0;
+  
+    this.cdr.markForCheck();
+  }
+  
+  private resetTrickCelebration(): void {
+  
+    this.finishTrickCelebration();
+  
+    this.lastCelebratedTrickKey = '';
+  }
+
+  private syncTrickCelebration(
+    room: CardRoom | null
+  ): void {
+  
+    if (!room) {
+  
+      this.resetTrickCelebration();
+  
+      return;
+    }
+  
+    const lastTrick = room.lastTrick;
+  
+    const endsAt =
+      room.trickCelebrationEndsAt ?? 0;
+  
+    const remainingMs = endsAt - Date.now();
+  
+    // A new round invalidates the previous celebration.
+    if (
+      this.isTrickCelebrating &&
+      this.celebrationRoundNumber !== room.roundNumber
+    ) {
+      this.finishTrickCelebration();
+    }
+  
+    // A completed trick must contain four cards
+    // and a valid winner.
+    if (
+      !lastTrick ||
+      !lastTrick.plays ||
+      lastTrick.plays.length !== 4 ||
+      !lastTrick.winnerUid
+    ) {
+  
+      if (this.isTrickCelebrating) {
+        this.finishTrickCelebration();
+      }
+  
+      return;
+    }
+  
+    const trickKey = [
+      room.code,
+      room.roundNumber,
+      lastTrick.trickNumber
+    ].join(':');
+  
+    // Prevent duplicate celebrations.
+    if (this.lastCelebratedTrickKey === trickKey) {
+      return;
+    }
+  
+    // Remember the trick even if its celebration
+    // has already expired.
+    this.lastCelebratedTrickKey = trickKey;
+  
+    // Do not replay old celebrations.
+    if (remainingMs <= 0) {
+  
+      this.finishTrickCelebration();
+  
+      return;
+    }
+  
+    this.clearCelebrationTimers();
+  
+    this.isTrickCelebrating = true;
+  
+    this.celebrationPlays = lastTrick.plays.map(
+      play => ({
+        uid: play.uid,
+        card: { ...play.card }
+      })
+    );
+  
+    this.celebrationWinnerUid =
+      lastTrick.winnerUid;
+  
+    this.celebrationTrickNumber =
+      lastTrick.trickNumber;
+  
+    this.celebrationRoundNumber =
+      room.roundNumber ?? 0;
+  
+    const elapsedMs = Math.max(
+      0,
+      this.trickCelebrationDurationMs - remainingMs
+    );
+  
+    // Determine the current animation phase.
+    if (elapsedMs < 800) {
+  
+      this.celebrationPhase = 'collecting';
+  
+    } else if (elapsedMs < 3300) {
+  
+      this.celebrationPhase = 'celebrating';
+  
+    } else {
+  
+      this.celebrationPhase = 'clearing';
+  
+    }
+  
+    // Phase 1 -> Phase 2:
+    // All four cards reach the center.
+    if (elapsedMs < 800) {
+  
+      this.scheduleCelebrationTimer(() => {
+  
+        this.celebrationPhase = 'celebrating';
+  
+      }, 800 - elapsedMs);
+  
+    }
+  
+    // Phase 2 -> Phase 3:
+    // Cards move toward the winner.
+    if (elapsedMs < 3300) {
+  
+      this.scheduleCelebrationTimer(() => {
+  
+        this.celebrationPhase = 'clearing';
+  
+      }, 3300 - elapsedMs);
+  
+    }
+  
+    // Finish the celebration.
+    this.scheduleCelebrationTimer(() => {
+  
+      this.finishTrickCelebration();
+  
+    }, remainingMs);
+  
+    this.cdr.markForCheck();
   }
 
   getScorecardTotal(playerUid: string): number {
@@ -201,6 +472,9 @@ export class CardGameComponent implements OnDestroy {
   }
 
   get isMyPlayTurn(): boolean {
+    if (this.isCelebrationBlockingActions) {
+      return false;
+    }
     return this.isPlaying &&
       this.room?.currentPlayerId === this.myId;
   }
@@ -217,6 +491,10 @@ export class CardGameComponent implements OnDestroy {
   // ------------------------------------------------
 
   get canDealNextRound(): boolean {
+
+    if (this.isCelebrationBlockingActions) {
+      return false;
+    }
 
     if (
       !this.room ||
@@ -250,6 +528,10 @@ export class CardGameComponent implements OnDestroy {
   }
 
   deal(): void {
+
+    if (this.isCelebrationBlockingActions) {
+      return;
+    }
 
     if (!this.canDealNextRound) {
       return;
@@ -497,6 +779,9 @@ export class CardGameComponent implements OnDestroy {
 
   canPlayCard(card: PlayingCard): boolean {
 
+    if (this.isCelebrationBlockingActions) {
+      return false;
+    }
     if (
       !this.isMyPlayTurn ||
       this.busy ||
@@ -539,6 +824,10 @@ export class CardGameComponent implements OnDestroy {
   }
 
   playCard(card: PlayingCard): void {
+
+    if (this.isCelebrationBlockingActions) {
+      return;
+    }
 
     if (!this.canPlayCard(card)) {
       return;
@@ -799,6 +1088,7 @@ export class CardGameComponent implements OnDestroy {
           this.room?.roundNumber ?? 0;
 
         this.room = room;
+        this.syncTrickCelebration(this.room);
 
         const currentRound =
           room.roundNumber ?? 0;
@@ -992,6 +1282,7 @@ export class CardGameComponent implements OnDestroy {
   // ------------------------------------------------
 
   returnToLobby(): void {
+    this.resetTrickCelebration();
 
     if (!this.isGameComplete || this.busy) {
       return;
@@ -1035,7 +1326,7 @@ export class CardGameComponent implements OnDestroy {
   // ------------------------------------------------
 
   ngOnDestroy(): void {
-
+    this.resetTrickCelebration();
     this.unsubscribeHand?.();
     this.unsubscribe?.();
   }
