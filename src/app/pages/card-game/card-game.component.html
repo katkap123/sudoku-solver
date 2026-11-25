@@ -361,6 +361,75 @@
 
           </div>
 
+          <!-- PREDICTION TURN -->
+
+          <div
+            class="turn-banner"
+            [class.my-turn]="isMyTurn"
+            aria-live="polite">
+
+            <strong *ngIf="isMyTurn">
+              Your turn! Submit your prediction.
+            </strong>
+
+            <span *ngIf="!isMyTurn">
+              Waiting for {{ currentPlayerName }}
+              to predict...
+            </span>
+
+          </div>
+
+          <!-- SUBMIT PREDICTION -->
+
+          <div
+            *ngIf="isMyTurn"
+            class="prediction-input-panel">
+
+            <label for="prediction">
+              How many tricks will you win?
+            </label>
+
+            <select
+              id="prediction"
+              [(ngModel)]="selectedPrediction"
+              [disabled]="
+                busy ||
+                !isHandSynchronized
+              ">
+
+              <option
+                *ngFor="let value of availablePredictions"
+                [ngValue]="value">
+
+                {{ value }}
+
+              </option>
+
+            </select>
+
+            <p
+              *ngIf="roundPlayerOrder[3] === myId"
+              class="prediction-restriction">
+
+              As the last bidder, your prediction
+              cannot make the total predictions equal
+              {{ currentRoundNumber }}.
+
+            </p>
+
+            <button
+              type="button"
+              (click)="predict()"
+              [disabled]="!canSubmitPrediction">
+
+              {{ busy
+                ? 'Please wait...'
+                : 'Submit Prediction' }}
+
+            </button>
+
+          </div>
+
           <!-- ROTATING PREDICTION ORDER -->
 
           <div class="prediction-order-panel">
@@ -438,75 +507,6 @@
               </div>
 
             </div>
-
-          </div>
-
-          <!-- PREDICTION TURN -->
-
-          <div
-            class="turn-banner"
-            [class.my-turn]="isMyTurn"
-            aria-live="polite">
-
-            <strong *ngIf="isMyTurn">
-              Your turn! Submit your prediction.
-            </strong>
-
-            <span *ngIf="!isMyTurn">
-              Waiting for {{ currentPlayerName }}
-              to predict...
-            </span>
-
-          </div>
-
-          <!-- SUBMIT PREDICTION -->
-
-          <div
-            *ngIf="isMyTurn"
-            class="prediction-input-panel">
-
-            <label for="prediction">
-              How many tricks will you win?
-            </label>
-
-            <select
-              id="prediction"
-              [(ngModel)]="selectedPrediction"
-              [disabled]="
-                busy ||
-                !isHandSynchronized
-              ">
-
-              <option
-                *ngFor="let value of availablePredictions"
-                [ngValue]="value">
-
-                {{ value }}
-
-              </option>
-
-            </select>
-
-            <p
-              *ngIf="roundPlayerOrder[3] === myId"
-              class="prediction-restriction">
-
-              As the last bidder, your prediction
-              cannot make the total predictions equal
-              {{ currentRoundNumber }}.
-
-            </p>
-
-            <button
-              type="button"
-              (click)="predict()"
-              [disabled]="!canSubmitPrediction">
-
-              {{ busy
-                ? 'Please wait...'
-                : 'Submit Prediction' }}
-
-            </button>
 
           </div>
 
